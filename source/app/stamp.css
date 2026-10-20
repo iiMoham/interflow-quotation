@@ -1,0 +1,31 @@
+.doc-mark {
+  width: 190px;
+  height: 115px;
+  margin: 8px auto -20px;
+  overflow: hidden;
+  border-radius: 0;
+  background: transparent;
+  color: transparent;
+  position: relative;
+  z-index: 2;
+}
+
+.doc-mark span {
+  display: none;
+}
+
+.doc-mark::after {
+  content: "";
+  position: absolute;
+  inset: -34px 0 auto;
+  width: 190px;
+  height: 190px;
+  background: url("/company-stamp.png") center / contain no-repeat;
+}
+
+@media print {
+  .doc-mark {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

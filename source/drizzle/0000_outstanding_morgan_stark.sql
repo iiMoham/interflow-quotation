@@ -1,0 +1,4 @@
+CREATE TABLE `quote_numbers` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`created_at` text DEFAULT 'CURRENT_TIMESTAMP' NOT NULL
+);

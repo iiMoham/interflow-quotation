@@ -1,0 +1,329 @@
+.brand-main {
+  min-height: 100vh;
+}
+
+.brand-logo-surface {
+  display: inline-flex;
+  width: 150px;
+  min-width: 150px;
+  height: 50px;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 8px;
+  border-radius: 9px;
+  background: var(--logo-surface);
+}
+
+.brand-logo-surface img {
+  display: block;
+  width: 100%;
+  max-height: 42px;
+  object-fit: contain;
+}
+
+.app-title > .brand-logo-surface {
+  width: 140px;
+  min-width: 140px;
+  height: 46px;
+}
+
+.quote-header > .brand-logo-surface {
+  width: 150px;
+  min-width: 150px;
+  height: 54px;
+}
+
+.app-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-action-secondary {
+  border-color: rgb(255 255 255 / 42%) !important;
+  background: rgb(255 255 255 / 8%) !important;
+  color: #fff !important;
+  font-weight: 700 !important;
+}
+
+.app-action-secondary:hover {
+  background: rgb(255 255 255 / 17%) !important;
+}
+
+.platform-hint {
+  margin: -4px 0 12px;
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.platform-choices {
+  display: grid;
+  gap: 10px;
+}
+
+.platform-choice {
+  position: relative;
+  display: grid;
+  grid-template-columns: 145px 1fr 26px;
+  align-items: center;
+  gap: 12px;
+  min-height: 70px;
+  padding: 8px 12px;
+  overflow: hidden;
+  border: 1px solid #cdd7dd;
+  border-radius: 12px;
+  background: #f7fafb;
+  color: #28313a;
+  cursor: pointer;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.platform-choice:hover {
+  transform: translateY(-1px);
+}
+
+.platform-choice:focus-within {
+  outline: 3px solid color-mix(in srgb, var(--choice-color) 22%, transparent);
+  outline-offset: 2px;
+}
+
+.platform-choice-interflow {
+  --choice-color: #08afd0;
+  border-color: #9edbe8;
+  background: linear-gradient(90deg, #f7fcfe 0%, #ecf9fc 100%);
+  color: #102b3a;
+}
+
+.platform-choice-interflow .brand-logo-surface {
+  position: relative;
+}
+
+.platform-choice-interflow .brand-logo-surface img {
+  opacity: 0;
+}
+
+.platform-choice-interflow .brand-logo-surface::after {
+  content: "";
+  position: absolute;
+  inset: 5px 8px;
+  background: #102b3a;
+  -webkit-mask: url("/interflow-logo.png") center / contain no-repeat;
+  mask: url("/interflow-logo.png") center / contain no-repeat;
+}
+
+.platform-choice-roduod {
+  --choice-color: #08733f;
+  border-color: #b0d5bf;
+  background: #eef7f2;
+  color: #075e35;
+}
+
+.platform-choice.is-active {
+  border-color: var(--choice-color);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--choice-color) 16%, transparent);
+}
+
+.platform-choice .brand-logo-surface {
+  width: 145px;
+  min-width: 145px;
+  height: 48px;
+  background: #fff;
+}
+
+.platform-choice strong {
+  font-size: 14px;
+  text-align: right;
+}
+
+.platform-radio {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.choice-check {
+  display: grid;
+  width: 23px;
+  height: 23px;
+  place-items: center;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  color: transparent;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.platform-choice.is-active .choice-check {
+  border-color: var(--choice-color);
+  background: var(--choice-color);
+  color: #fff;
+}
+
+.brand-roduod .locked-number {
+  background: #edf8f1;
+  border-color: #9ccdb0;
+  color: #075e35;
+}
+
+.field-note {
+  color: #7a8190;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.status-value {
+  color: #171829;
+  font-weight: 800;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.quote-actions {
+  display: grid;
+  grid-template-columns: 1.35fr 1fr;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.quote-actions button {
+  min-height: 48px;
+  font-weight: 800 !important;
+}
+
+.download-quote,
+.create-quote {
+  background: var(--cyan) !important;
+  color: #fff !important;
+}
+
+.print-quote {
+  border-color: color-mix(in srgb, var(--cyan) 45%, #cfd5dc) !important;
+  color: var(--navy) !important;
+}
+
+.pdf-error {
+  margin: 8px 0 0;
+  color: #b42318;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.new-quote-dialog {
+  width: min(600px, calc(100vw - 28px));
+  max-width: 600px;
+  gap: 18px;
+  background: #ffffff !important;
+  opacity: 1;
+  box-shadow: 0 24px 70px rgb(0 0 0 / 28%);
+  border-radius: 18px;
+  padding: 26px;
+}
+
+.new-quote-dialog [data-slot="dialog-header"] {
+  text-align: right;
+}
+
+.new-quote-dialog [data-slot="dialog-title"] {
+  color: var(--navy);
+  font-size: 24px;
+}
+
+.new-quote-dialog [data-slot="dialog-description"] {
+  line-height: 1.7;
+}
+
+.new-quote-dialog [data-slot="dialog-footer"] {
+  flex-direction: row;
+  justify-content: flex-start;
+}
+
+.new-quote-error {
+  margin: 0;
+  color: #b42318;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.platform-stamp {
+  position: relative;
+  z-index: 2;
+  margin-inline: auto;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.platform-stamp-interflow {
+  width: 190px;
+  height: 115px;
+  margin-top: 8px;
+  margin-bottom: -20px;
+  overflow: hidden;
+}
+
+.platform-stamp-interflow img {
+  display: block;
+  width: 190px;
+  height: 190px;
+  object-fit: contain;
+  transform: translateY(-34px);
+}
+
+.platform-stamp-roduod {
+  width: 310px;
+  height: 155px;
+  margin-top: 4px;
+  margin-bottom: -28px;
+  overflow: hidden;
+}
+
+.platform-stamp-roduod img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  mix-blend-mode: multiply;
+}
+
+@media (max-width: 650px) {
+  .app-title > .brand-logo-surface {
+    width: 120px;
+    min-width: 120px;
+  }
+
+  .app-actions {
+    gap: 5px;
+  }
+
+  .app-actions button {
+    width: 40px;
+    padding-inline: 0;
+  }
+
+  .app-actions .button-label {
+    display: none;
+  }
+
+  .platform-choice {
+    grid-template-columns: 122px 1fr 24px;
+    gap: 8px;
+    padding-inline: 9px;
+  }
+
+  .platform-choice .brand-logo-surface {
+    width: 122px;
+    min-width: 122px;
+  }
+
+  .new-quote-dialog {
+    padding: 20px 16px;
+  }
+
+  .new-quote-dialog [data-slot="dialog-footer"] {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+}
