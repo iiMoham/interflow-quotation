@@ -17,6 +17,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { downloadQuoteAsPdf } from "@/lib/pdf-download";
 
 type Platform = "interflow" | "roduod";
+
+// GitHub Pages builds are static: assets live under the repo sub-path and there is no
+// server, so quote numbers come from a per-browser counter instead of /api/quote-number.
+const staticExport = process.env.NEXT_PUBLIC_STATIC_EXPORT === "1";
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+const LOCAL_COUNTER_KEY = "interflow-quote-counter";
+const LOCAL_COUNTER_START = 62;
 type Item = { name: string; description: string; qty: number; price: number };
 type Draft = {
   platform: Platform;
@@ -36,22 +43,22 @@ type Draft = {
 const brands = {
   interflow: {
     label: "انترفلو",
-    logo: "/interflow-logo.png",
+    logo: `${basePath}/interflow-logo.png`,
     accent: "#08afd0",
     dark: "#18192f",
     logoSurface: "transparent",
-    stamp: "/company-stamp.png",
+    stamp: `${basePath}/company-stamp.png`,
     domain: "interflow.sa",
     email: "info@interflow.sa",
     optionText: "هوية انترفلو",
   },
   roduod: {
     label: "ردود",
-    logo: "/roduod-logo.png",
+    logo: `${basePath}/roduod-logo.png`,
     accent: "#08733f",
     dark: "#064f30",
     logoSurface: "#ffffff",
-    stamp: "/roduod-stamp.png",
+    stamp: `${basePath}/roduod-stamp.png`,
     domain: "منصة ردود",
     email: "info@roduod.com",
     optionText: "هوية ردود",
@@ -85,6 +92,20 @@ const money = (value: number) =>
   `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value || 0)} ريال`;
 const displayDate = (value: string) => (value ? value.replaceAll("-", "/") : "-");
 
+async function fetchServerNumber() {
+  const response = await fetch("/api/quote-number", { method: "POST" });
+  const data = (await response.json()) as { number?: string; error?: string };
+  if (!response.ok || !data.number) throw new Error(data.error || "تعذر توليد الرقم");
+  return data as { number: string };
+}
+
+function nextLocalNumber() {
+  const last = Number(localStorage.getItem(LOCAL_COUNTER_KEY)) || LOCAL_COUNTER_START;
+  const next = last + 1;
+  localStorage.setItem(LOCAL_COUNTER_KEY, String(next));
+  return { number: `#Qut${String(next).padStart(4, "0")}` };
+}
+
 export default function Home() {
   const [draft, setDraft] = useState<Draft>(initialDraft);
   const [ready, setReady] = useState(false);
@@ -103,9 +124,7 @@ export default function Home() {
     setAllocating(true);
     setNumberError("");
     try {
-      const response = await fetch("/api/quote-number", { method: "POST" });
-      const data = (await response.json()) as { number?: string; error?: string };
-      if (!response.ok || !data.number) throw new Error(data.error || "تعذر توليد الرقم");
+      const data = staticExport ? nextLocalNumber() : await fetchServerNumber();
       setDraft((current) =>
         reset
           ? { ...initialDraft(platform || current.platform), quoteNumber: data.number! }

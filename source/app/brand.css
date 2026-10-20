@@ -107,8 +107,8 @@
   position: absolute;
   inset: 5px 8px;
   background: #102b3a;
-  -webkit-mask: url("/interflow-logo.png") center / contain no-repeat;
-  mask: url("/interflow-logo.png") center / contain no-repeat;
+  -webkit-mask: url("../public/interflow-logo.png") center / contain no-repeat;
+  mask: url("../public/interflow-logo.png") center / contain no-repeat;
 }
 
 .platform-choice-roduod {
