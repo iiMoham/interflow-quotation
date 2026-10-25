@@ -700,3 +700,93 @@ html [data-sonner-toaster] {
 .notes li::marker {
   color: var(--cyan);
 }
+
+/* ---------- Ready products ---------- */
+
+.product-picker {
+  margin-bottom: 14px;
+}
+
+.product-picker-label {
+  display: block;
+  margin-bottom: 8px;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.product-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 8px;
+}
+
+.product-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--cyan) 35%, #d5d9e2);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--cyan) 5%, #fff);
+  text-align: right;
+  transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+}
+
+.product-card:hover {
+  border-color: var(--cyan);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--cyan) 18%, transparent);
+  transform: translateY(-1px);
+}
+
+.product-card:active {
+  transform: translateY(0);
+}
+
+.product-card b {
+  padding-inline-end: 26px;
+  color: var(--navy);
+  font-size: 14px;
+}
+
+.product-card small {
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.product-price {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 2px;
+  color: color-mix(in srgb, var(--cyan) 75%, #000);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.product-price s {
+  color: #8a91a0;
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.product-add {
+  position: absolute;
+  top: 9px;
+  left: 10px;
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--cyan);
+  color: #fff;
+}
+
+.product-add svg {
+  width: 14px;
+  height: 14px;
+}

@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { downloadQuoteAsPdf } from "@/lib/pdf-download";
 import { formatQuoteNumber, normalizeQuoteNumber } from "@/lib/quote-number";
+import { PRODUCTS, type Product } from "@/lib/products";
 import { amountInWords, daysText } from "@/lib/tafqit";
 
 type Platform = "interflow" | "roduod";
@@ -292,6 +293,20 @@ export default function Home() {
       window.history.replaceState({}, "", url.toString());
     }
   };
+  // A ready product already in the quote gets its quantity bumped; a lone blank item is replaced.
+  const addProduct = (product: Product) => {
+    const existing = draft.items.findIndex(
+      (item) => item.name === product.name && Number(item.price) === product.price,
+    );
+    const onlyBlank =
+      draft.items.length === 1 && !draft.items[0].name.trim() && !Number(draft.items[0].price);
+    const items =
+      existing >= 0
+        ? draft.items.map((item, i) => (i === existing ? { ...item, qty: (Number(item.qty) || 0) + 1 } : item))
+        : [...(onlyBlank ? [] : draft.items), { ...product, qty: 1 }];
+    set("items", items);
+    toast.success(existing >= 0 ? `تمت زيادة كمية «${product.name}»` : `تمت إضافة «${product.name}»`);
+  };
   const duplicateItem = (index: number) =>
     setDraft((current) => ({
       ...current,
@@ -467,6 +482,27 @@ export default function Home() {
 
           <section>
             <h2>البنود</h2>
+            <div className="product-picker">
+              <span className="product-picker-label">منتجات جاهزة — اضغط للإضافة</span>
+              <div className="product-grid">
+                {PRODUCTS.map((product) => (
+                  <button
+                    type="button"
+                    key={product.name}
+                    className="product-card"
+                    onClick={() => addProduct(product)}
+                  >
+                    <span className="product-add" aria-hidden="true"><Plus /></span>
+                    <b>{product.name}</b>
+                    <small>{product.description}</small>
+                    <span className="product-price">
+                      {money(product.price)}
+                      {product.oldPrice > product.price && <s>{money(product.oldPrice)}</s>}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
             {draft.items.map((item, index) => (
               <div className="item-card" key={index}>
                 <div className="item-heading">
