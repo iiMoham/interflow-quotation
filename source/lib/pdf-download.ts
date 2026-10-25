@@ -47,7 +47,13 @@ export type QuotePdfData = {
 };
 
 const encode = (value: string) => new TextEncoder().encode(value);
-const fontFamily = 'Tahoma, Arial, sans-serif';
+// Same stack as the page; Thmanyah Sans only renders where it is installed (see brand.css).
+const fontFamily = '"Thmanyah Sans", Tahoma, Arial, sans-serif';
+
+// Canvas text doesn't wait for fonts, so load every weight the PDF draws with first.
+async function loadPdfFonts() {
+  await Promise.all(["400", "700", "800"].map((weight) => document.fonts.load(`${weight} 13px ${fontFamily}`)));
+}
 
 const money = (value: number) => {
   const amount = value || 0;
@@ -177,7 +183,11 @@ function pill(
 }
 
 async function renderQuotation(data: QuotePdfData) {
-  const [logo, stamp] = await Promise.all([loadImage(data.brand.logo), loadImage(data.brand.stamp)]);
+  const [logo, stamp] = await Promise.all([
+    loadImage(data.brand.logo),
+    loadImage(data.brand.stamp),
+    loadPdfFonts(),
+  ]);
   const measureCanvas = document.createElement("canvas");
   const measureContext = measureCanvas.getContext("2d");
   if (!measureContext) throw new Error("تعذر تجهيز ملف PDF");

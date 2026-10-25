@@ -1,3 +1,45 @@
+/*
+ * Thmanyah Sans is used only from the viewer's installed copy (local()): its license
+ * forbids hosting or redistributing the font files, so none ship with this site.
+ * Devices without it installed fall back to Tahoma.
+ */
+@font-face {
+  font-family: "Thmanyah Sans";
+  src: local("thmanyah sans Light"), local("thmanyahsans-Light");
+  font-weight: 300;
+}
+
+@font-face {
+  font-family: "Thmanyah Sans";
+  src: local("thmanyah sans Regular"), local("thmanyahsans-Regular");
+  font-weight: 400;
+}
+
+@font-face {
+  font-family: "Thmanyah Sans";
+  src: local("thmanyah sans Medium"), local("thmanyahsans-Medium");
+  font-weight: 500 600;
+}
+
+@font-face {
+  font-family: "Thmanyah Sans";
+  src: local("thmanyah sans Bold"), local("thmanyahsans-Bold");
+  font-weight: 700;
+}
+
+@font-face {
+  font-family: "Thmanyah Sans";
+  src: local("thmanyah sans Black"), local("thmanyahsans-Black");
+  font-weight: 800 900;
+}
+
+body,
+button,
+input,
+textarea {
+  font-family: "Thmanyah Sans", Tahoma, Arial, sans-serif;
+}
+
 .brand-main {
   min-height: 100vh;
 }
