@@ -17,6 +17,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { downloadQuoteAsPdf } from "@/lib/pdf-download";
+import { formatQuoteNumber, normalizeQuoteNumber } from "@/lib/quote-number";
 import { amountInWords, daysText } from "@/lib/tafqit";
 
 type Platform = "interflow" | "roduod";
@@ -128,7 +129,7 @@ function nextLocalNumber() {
   const last = Number(localStorage.getItem(LOCAL_COUNTER_KEY)) || LOCAL_COUNTER_START;
   const next = last + 1;
   localStorage.setItem(LOCAL_COUNTER_KEY, String(next));
-  return { number: `#Qut${String(next).padStart(4, "0")}` };
+  return { number: formatQuoteNumber(next) };
 }
 
 export default function Home() {
@@ -176,6 +177,7 @@ export default function Home() {
             ...initialDraft(parsed.platform === "roduod" ? "roduod" : "interflow"),
             ...parsed,
             platform: parsed.platform === "roduod" ? "roduod" : "interflow",
+            quoteNumber: normalizeQuoteNumber(parsed.quoteNumber),
             issueDate: today(),
             expiryDate: plusDays(today(), validDays),
             validDays,
@@ -621,7 +623,11 @@ export default function Home() {
               <div className="quote-body">
                 <div className="quote-title">
                   <h2>{draft.status || "عرض سعر"}</h2>
-                  <strong>{draft.quoteNumber || "..."}</strong>
+                  <span className="quote-title-en">QUOTATION</span>
+                  <div className="quote-number-badge">
+                    <span>رقم العرض</span>
+                    <bdi>{draft.quoteNumber || "..."}</bdi>
+                  </div>
                 </div>
                 <div className="info-cards">
                   <div className="info-card">

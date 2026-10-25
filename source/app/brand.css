@@ -474,8 +474,39 @@ html [data-sonner-toaster] {
   margin: 4px 0 22px;
 }
 
-.quote-title > strong {
-  margin-top: 12px;
+.quote-title-en {
+  display: block;
+  margin-top: 2px;
+  color: #8a91a0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.4em;
+}
+
+.quote-number-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 6px 16px;
+  border: 1px solid color-mix(in srgb, var(--cyan) 45%, #fff);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--cyan) 7%, #fff);
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.quote-number-badge span {
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.quote-number-badge bdi {
+  color: var(--navy);
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
 }
 
 /* Let the totals row fill the sheet so the stamp can centre in the space under the totals. */

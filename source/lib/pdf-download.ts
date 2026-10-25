@@ -196,7 +196,7 @@ async function renderQuotation(data: QuotePdfData) {
   const hasDiscount = data.totals.discountTotal > 0;
 
   // Vertical layout, top to bottom.
-  const cardsTop = 232;
+  const cardsTop = 230;
   const cardsHeight = 100;
   const tableTop = cardsTop + cardsHeight + 22;
   const tableHeaderHeight = 40;
@@ -277,21 +277,47 @@ async function renderQuotation(data: QuotePdfData) {
   context.fillStyle = data.brand.accent;
   context.font = `800 42px ${fontFamily}`;
   context.textAlign = "center";
-  context.fillText(data.status || "عرض سعر", PAGE_WIDTH / 2, 146);
+  context.fillText(data.status || "عرض سعر", PAGE_WIDTH / 2, 140);
 
-  context.fillStyle = INK;
-  context.strokeStyle = INK;
-  context.font = `800 27px ${fontFamily}`;
+  context.fillStyle = "#8a91a0";
+  context.font = `700 12px ${fontFamily}`;
   context.direction = "ltr";
+  context.letterSpacing = "4.8px";
+  context.fillText("QUOTATION", PAGE_WIDTH / 2, 162);
+  context.letterSpacing = "0px";
+
+  // Number badge: "رقم العرض" on the right, the number on the left.
   const quoteNumber = data.quoteNumber || "...";
-  context.fillText(quoteNumber, PAGE_WIDTH / 2, 202);
+  context.font = `800 18px ${fontFamily}`;
   const numberWidth = context.measureText(quoteNumber).width;
-  context.lineWidth = 1.5;
-  context.beginPath();
-  context.moveTo(PAGE_WIDTH / 2 - numberWidth / 2, 207);
-  context.lineTo(PAGE_WIDTH / 2 + numberWidth / 2, 207);
+  context.font = `700 12px ${fontFamily}`;
+  const badgeLabel = "رقم العرض";
+  const labelWidth = context.measureText(badgeLabel).width;
+  const badgeHeight = 34;
+  const badgeWidth = 16 + labelWidth + 10 + numberWidth + 16;
+  const badgeX = PAGE_WIDTH / 2 - badgeWidth / 2;
+  const badgeTop = 176;
+  roundedRect(context, badgeX, badgeTop, badgeWidth, badgeHeight, badgeHeight / 2);
+  context.save();
+  context.fillStyle = data.brand.accent;
+  context.globalAlpha = 0.07;
+  context.fill();
+  context.strokeStyle = data.brand.accent;
+  context.globalAlpha = 0.45;
+  context.lineWidth = 1;
   context.stroke();
+  context.restore();
+  context.textBaseline = "middle";
+  context.textAlign = "left";
+  context.fillStyle = data.brand.dark;
+  context.font = `800 18px ${fontFamily}`;
+  context.fillText(quoteNumber, badgeX + 16, badgeTop + badgeHeight / 2 + 1);
   context.direction = "rtl";
+  context.textAlign = "right";
+  context.fillStyle = MUTED;
+  context.font = `700 12px ${fontFamily}`;
+  context.fillText(badgeLabel, badgeX + badgeWidth - 16, badgeTop + badgeHeight / 2 + 1);
+  context.textBaseline = "alphabetic";
 
   // Client and quote detail cards
   const cardWidth = (714 - 12) / 2;
