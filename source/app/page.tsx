@@ -18,7 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { downloadQuoteAsPdf } from "@/lib/pdf-download";
 import { formatQuoteNumber, normalizeQuoteNumber } from "@/lib/quote-number";
-import { PRODUCTS, type Product } from "@/lib/products";
+import { PRODUCTS, productTotal, type Product } from "@/lib/products";
 import { amountInWords, daysText } from "@/lib/tafqit";
 
 type Platform = "interflow" | "roduod";
@@ -293,19 +293,10 @@ export default function Home() {
       window.history.replaceState({}, "", url.toString());
     }
   };
-  // A ready product already in the quote gets its quantity bumped; a lone blank item is replaced.
+  // A ready package replaces the quote's items with its lines and switches on its VAT.
   const addProduct = (product: Product) => {
-    const existing = draft.items.findIndex(
-      (item) => item.name === product.name && Number(item.price) === product.price,
-    );
-    const onlyBlank =
-      draft.items.length === 1 && !draft.items[0].name.trim() && !Number(draft.items[0].price);
-    const items =
-      existing >= 0
-        ? draft.items.map((item, i) => (i === existing ? { ...item, qty: (Number(item.qty) || 0) + 1 } : item))
-        : [...(onlyBlank ? [] : draft.items), { ...product, qty: 1 }];
-    set("items", items);
-    toast.success(existing >= 0 ? `تمت زيادة كمية «${product.name}»` : `تمت إضافة «${product.name}»`);
+    setDraft((current) => ({ ...current, items: product.lines.map((line) => ({ ...line })), discount: 0, tax: product.tax }));
+    toast.success(`تم تطبيق «${product.name}»`);
   };
   const duplicateItem = (index: number) =>
     setDraft((current) => ({
@@ -483,7 +474,7 @@ export default function Home() {
           <section>
             <h2>البنود</h2>
             <div className="product-picker">
-              <span className="product-picker-label">منتجات جاهزة — اضغط للإضافة</span>
+              <span className="product-picker-label">منتجات جاهزة — اضغط للتطبيق</span>
               <div className="product-grid">
                 {PRODUCTS.map((product) => (
                   <button
@@ -496,8 +487,8 @@ export default function Home() {
                     <b>{product.name}</b>
                     <small>{product.description}</small>
                     <span className="product-price">
-                      {money(product.price)}
-                      {product.oldPrice > product.price && <s>{money(product.oldPrice)}</s>}
+                      {money(productTotal(product))}
+                      {product.tax > 0 && <small>شامل الضريبة</small>}
                     </span>
                   </button>
                 ))}
