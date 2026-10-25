@@ -657,7 +657,18 @@ textarea {
 .notes ul {
   margin: 6px 0 0;
   padding-inline-start: 18px;
+  list-style: disc;
   line-height: 1.8;
+}
+
+.amount-words .notes {
+  align-self: stretch;
+  margin-top: 8px;
+}
+
+.totals-side .platform-stamp {
+  margin-top: 14px;
+  margin-bottom: 0;
 }
 
 .notes li::marker {

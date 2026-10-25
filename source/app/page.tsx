@@ -663,22 +663,24 @@ export default function Home() {
                       <span className="savings-badge">وفّرت {money(totals.discountTotal)} ({savingsPercent}%)</span>
                     )}
                     <p className="validity">هذا العرض صالح لمدة {daysText(draft.validDays || 0)} من تاريخ الإصدار</p>
+                    <div className="notes">
+                      <b>ملاحظات</b>
+                      <ul>
+                        {noteLines.map((line, index) => <li key={index}>{line}</li>)}
+                      </ul>
+                    </div>
                   </div>
-                  <div className="totals-card">
-                    <div><span>المجموع قبل الخصم</span><b>{money(totals.subtotal)}</b></div>
-                    <div className="discount-value"><span>قيمة الخصم</span><b>{totals.discountTotal > 0 ? `- ${money(totals.discountTotal)}` : money(0)}</b></div>
-                    <div><span>المجموع بعد الخصم</span><b>{money(totals.afterDiscount)}</b></div>
-                    <div><span>الضريبة ({draft.tax || 0}%)</span><b>{money(totals.taxAmount)}</b></div>
-                    <div className="grand-total"><span>الإجمالي شامل الضريبة</span><b>{money(totals.grand)}</b></div>
+                  <div className="totals-side">
+                    <div className="totals-card">
+                      <div><span>المجموع قبل الخصم</span><b>{money(totals.subtotal)}</b></div>
+                      <div className="discount-value"><span>قيمة الخصم</span><b>{totals.discountTotal > 0 ? `- ${money(totals.discountTotal)}` : money(0)}</b></div>
+                      <div><span>المجموع بعد الخصم</span><b>{money(totals.afterDiscount)}</b></div>
+                      <div><span>الضريبة ({draft.tax || 0}%)</span><b>{money(totals.taxAmount)}</b></div>
+                      <div className="grand-total"><span>الإجمالي شامل الضريبة</span><b>{money(totals.grand)}</b></div>
+                    </div>
+                    <PlatformStamp platform={draft.platform} brand={brand} />
                   </div>
                 </div>
-                <div className="notes">
-                  <b>ملاحظات</b>
-                  <ul>
-                    {noteLines.map((line, index) => <li key={index}>{line}</li>)}
-                  </ul>
-                </div>
-                <PlatformStamp platform={draft.platform} brand={brand} />
               </div>
               <footer>
                 <span>{brand.domain}</span><span>{brand.email}</span><span>سجل تجاري: 7051649650</span>

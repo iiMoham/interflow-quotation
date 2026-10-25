@@ -218,21 +218,25 @@ async function renderQuotation(data: QuotePdfData) {
   const wordsLines = wrapText(measureContext, amountInWords(data.totals.grand), 340);
   const savingsTop = totalsTop + 30 + wordsLines.length * 21;
   const validityY = savingsTop + (hasDiscount ? 46 : 12);
-  const totalsBottom = totalsTop + Math.max(totalsCardHeight, validityY - totalsTop + 8);
 
+  // Right column: notes sit under the amount in words. Left column: stamp under the totals.
+  const notesX = 394;
+  const notesWidth = 360;
   measureContext.font = `13px ${fontFamily}`;
   const noteRows = (data.notes || "-")
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean)
-    .flatMap((line) => wrapText(measureContext, line, 640).map((text, index) => ({ text, bullet: index === 0 })));
+    .flatMap((line) => wrapText(measureContext, line, notesWidth - 42).map((text, index) => ({ text, bullet: index === 0 })));
   if (!noteRows.length) noteRows.push({ text: "-", bullet: true });
-  const notesTop = totalsBottom + 20;
+  const notesTop = validityY + 16;
   const notesBottom = notesTop + 44 + noteRows.length * 20;
 
-  const stampTop = notesBottom + 8;
+  const stampTop = totalsTop + totalsCardHeight + 14;
   const stampHeight = data.platform === "interflow" ? 115 : 155;
-  const footerTop = Math.max(1059, stampTop + stampHeight + 20);
+  const stampCenterX = 40 + 330 / 2;
+  const contentBottom = Math.max(notesBottom, stampTop + stampHeight);
+  const footerTop = Math.max(1059, contentBottom + 24);
   const pageHeight = footerTop + 64;
 
   const canvas = document.createElement("canvas");
@@ -513,7 +517,7 @@ async function renderQuotation(data: QuotePdfData) {
 
   // Notes
   context.fillStyle = CARD_SURFACE;
-  roundedRect(context, 40, notesTop, 714, notesBottom - notesTop, 10);
+  roundedRect(context, notesX, notesTop, notesWidth, notesBottom - notesTop, 10);
   context.fill();
   context.fillStyle = INK;
   context.font = `800 13px ${fontFamily}`;
@@ -533,12 +537,12 @@ async function renderQuotation(data: QuotePdfData) {
     if (data.platform === "interflow") {
       context.save();
       context.beginPath();
-      context.rect(PAGE_WIDTH / 2 - 95, stampTop, 190, 115);
+      context.rect(stampCenterX - 95, stampTop, 190, 115);
       context.clip();
-      drawImageContain(context, stamp, PAGE_WIDTH / 2 - 95, stampTop - 34, 190, 190);
+      drawImageContain(context, stamp, stampCenterX - 95, stampTop - 34, 190, 190);
       context.restore();
     } else {
-      drawImageContain(context, stamp, PAGE_WIDTH / 2 - 155, stampTop, 310, 155);
+      drawImageContain(context, stamp, stampCenterX - 155, stampTop, 310, 155);
     }
   }
 
