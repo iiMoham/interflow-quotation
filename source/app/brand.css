@@ -36,7 +36,8 @@
 body,
 button,
 input,
-textarea {
+textarea,
+html [data-sonner-toaster] {
   font-family: "Thmanyah Sans", Tahoma, Arial, sans-serif;
 }
 

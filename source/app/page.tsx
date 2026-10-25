@@ -13,7 +13,9 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Toaster } from "@/components/ui/sonner";
 import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
 import { downloadQuoteAsPdf } from "@/lib/pdf-download";
 import { amountInWords, daysText } from "@/lib/tafqit";
 
@@ -299,7 +301,8 @@ export default function Home() {
   const printQuote = () => window.print();
   const downloadPdf = async () => {
     if (pdfGenerating) return;
-    const safeNumber = (draft.quoteNumber || "جديد").replace("#", "");
+    const downloadedNumber = draft.quoteNumber;
+    const safeNumber = (downloadedNumber || "جديد").replace("#", "");
     setPdfGenerating(true);
     setPdfError("");
     try {
@@ -311,6 +314,13 @@ export default function Home() {
         },
         `عرض-سعر-${safeNumber}.pdf`,
       );
+      // Each downloaded quote keeps its number; the form moves on to the next one.
+      const advanced = await allocateNumber();
+      toast.success(<>تم تنزيل العرض <bdi>{downloadedNumber}</bdi></>, {
+        description: advanced
+          ? "تم تخصيص رقم جديد للعرض التالي، وبقيت بيانات العرض كما هي."
+          : "تعذر تخصيص رقم جديد، استخدم «إعادة المحاولة» بجانب رقم العرض.",
+      });
     } catch {
       setPdfError("تعذر تنزيل ملف PDF. حاول مرة أخرى.");
     } finally {
@@ -689,6 +699,8 @@ export default function Home() {
           </div>
         </section>
       </div>
+
+      <Toaster dir="rtl" position="top-center" theme="light" richColors />
 
       <Dialog
         open={newQuoteOpen}
