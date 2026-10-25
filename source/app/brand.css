@@ -327,3 +327,12 @@
     grid-template-columns: 1fr 1fr;
   }
 }
+
+.old-price {
+  color: #6b7280;
+  text-decoration-thickness: 1.5px;
+}
+
+.summary > .discount-value {
+  color: #b42318;
+}

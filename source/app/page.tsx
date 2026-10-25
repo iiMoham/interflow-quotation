@@ -24,7 +24,8 @@ const staticExport = process.env.NEXT_PUBLIC_STATIC_EXPORT === "1";
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 const LOCAL_COUNTER_KEY = "interflow-quote-counter";
 const LOCAL_COUNTER_START = 62;
-type Item = { name: string; description: string; qty: number; price: number };
+// price is the unit price after discount; oldPrice is the previous price (0 = none).
+type Item = { name: string; description: string; qty: number; oldPrice: number; price: number };
 type Draft = {
   platform: Platform;
   quoteNumber: string;
@@ -65,27 +66,36 @@ const brands = {
   },
 } as const;
 
-const today = () => new Date().toISOString().slice(0, 10);
+// Local calendar dates: toISOString() is UTC and lags a day after midnight in Saudi time.
+const localDate = (value: Date) =>
+  `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
+const today = () => localDate(new Date());
 const plusDays = (date: string, days: number) => {
   const value = new Date(`${date}T12:00:00`);
   value.setDate(value.getDate() + days);
-  return value.toISOString().slice(0, 10);
+  return localDate(value);
 };
+const daysBetween = (from: string, to: string) =>
+  Math.round((new Date(`${to}T12:00:00`).getTime() - new Date(`${from}T12:00:00`).getTime()) / 86_400_000);
+const DEFAULT_VALID_DAYS = 3;
+const emptyItem = (): Item => ({ name: "", description: "-", qty: 1, oldPrice: 0, price: 0 });
+const previousPrice = (item: Item) =>
+  (Number(item.oldPrice) || 0) > (Number(item.price) || 0) ? Number(item.oldPrice) : null;
 
 const initialDraft = (platform: Platform = "interflow"): Draft => ({
   platform,
   quoteNumber: "",
   status: "عرض سعر",
   issueDate: today(),
-  expiryDate: plusDays(today(), 3),
+  expiryDate: plusDays(today(), DEFAULT_VALID_DAYS),
   clientName: "",
   clientNumber: "",
   discount: 0,
   tax: 0,
-  validDays: 3,
+  validDays: DEFAULT_VALID_DAYS,
   notes:
     "الأسعار المذكورة شاملة/غير شاملة ضريبة القيمة المضافة حسب ما هو موضح.\nعرض السعر صالح للفترة المحددة أعلاه فقط.\nيحق للشركة تعديل الأسعار بعد انتهاء صلاحية العرض.",
-  items: [{ name: "", description: "-", qty: 1, price: 0 }],
+  items: [emptyItem()],
 });
 
 const money = (value: number) =>
@@ -145,10 +155,19 @@ export default function Home() {
       if (saved) {
         const parsed = JSON.parse(saved) as Partial<Draft>;
         if (parsed.quoteNumber) {
+          // Reopened drafts are dated today; the expiry follows from the validity days.
+          const validDays = Number(parsed.validDays) > 0 ? Number(parsed.validDays) : DEFAULT_VALID_DAYS;
           setDraft({
             ...initialDraft(parsed.platform === "roduod" ? "roduod" : "interflow"),
             ...parsed,
             platform: parsed.platform === "roduod" ? "roduod" : "interflow",
+            issueDate: today(),
+            expiryDate: plusDays(today(), validDays),
+            validDays,
+            items: (parsed.items?.length ? parsed.items : [emptyItem()]).map((item) => ({
+              ...emptyItem(),
+              ...item,
+            })),
           } as Draft);
           setReady(true);
           return;
@@ -197,18 +216,40 @@ export default function Home() {
   });
 
   const totals = useMemo(() => {
+    const qty = (item: Item) => Number(item.qty) || 0;
+    // Before discount uses each item's previous price when it has one.
     const subtotal = draft.items.reduce(
-      (sum, item) => sum + (Number(item.qty) || 0) * (Number(item.price) || 0),
+      (sum, item) => sum + qty(item) * (previousPrice(item) ?? (Number(item.price) || 0)),
       0,
     );
-    const discount = Math.min(Math.max(Number(draft.discount) || 0, 0), subtotal);
-    const afterDiscount = subtotal - discount;
+    const itemsTotal = draft.items.reduce((sum, item) => sum + qty(item) * (Number(item.price) || 0), 0);
+    const extraDiscount = Math.min(Math.max(Number(draft.discount) || 0, 0), itemsTotal);
+    const afterDiscount = itemsTotal - extraDiscount;
+    const discountTotal = subtotal - afterDiscount;
     const taxAmount = (afterDiscount * Math.max(Number(draft.tax) || 0, 0)) / 100;
-    return { subtotal, afterDiscount, taxAmount, grand: afterDiscount + taxAmount };
+    return { subtotal, discountTotal, afterDiscount, taxAmount, grand: afterDiscount + taxAmount };
   }, [draft]);
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((current) => ({ ...current, [key]: value }));
+  // Issue date, validity days and expiry date stay in sync: expiry = issue + days.
+  const setIssueDate = (issueDate: string) =>
+    setDraft((current) => ({
+      ...current,
+      issueDate,
+      expiryDate: issueDate ? plusDays(issueDate, current.validDays || 0) : current.expiryDate,
+    }));
+  const setValidDays = (validDays: number) =>
+    setDraft((current) => ({
+      ...current,
+      validDays,
+      expiryDate: current.issueDate && validDays > 0 ? plusDays(current.issueDate, validDays) : current.expiryDate,
+    }));
+  const setExpiryDate = (expiryDate: string) =>
+    setDraft((current) => {
+      const days = current.issueDate && expiryDate ? daysBetween(current.issueDate, expiryDate) : 0;
+      return { ...current, expiryDate, validDays: days > 0 ? days : current.validDays };
+    });
   const setItem = (index: number, key: keyof Item, value: string | number) =>
     setDraft((current) => ({
       ...current,
@@ -338,7 +379,7 @@ export default function Home() {
                 <Input
                   type="date"
                   value={draft.issueDate}
-                  onChange={(event) => set("issueDate", event.target.value)}
+                  onChange={(event) => setIssueDate(event.target.value)}
                 />
               </Field>
             </div>
@@ -347,7 +388,8 @@ export default function Home() {
                 <Input
                   type="date"
                   value={draft.expiryDate}
-                  onChange={(event) => set("expiryDate", event.target.value)}
+                  min={draft.issueDate}
+                  onChange={(event) => setExpiryDate(event.target.value)}
                 />
               </Field>
               <Field label="مدة الصلاحية بالأيام">
@@ -355,7 +397,7 @@ export default function Home() {
                   type="number"
                   min={1}
                   value={draft.validDays}
-                  onChange={(event) => set("validDays", Number(event.target.value))}
+                  onChange={(event) => setValidDays(Number(event.target.value))}
                 />
               </Field>
             </div>
@@ -401,16 +443,25 @@ export default function Home() {
                     onChange={(event) => setItem(index, "description", event.target.value)}
                   />
                 </Field>
+                <Field label="العدد">
+                  <Input
+                    type="number"
+                    min={0}
+                    value={item.qty}
+                    onChange={(event) => setItem(index, "qty", Number(event.target.value))}
+                  />
+                </Field>
                 <div className="two">
-                  <Field label="العدد">
+                  <Field label="السعر السابق">
                     <Input
                       type="number"
                       min={0}
-                      value={item.qty}
-                      onChange={(event) => setItem(index, "qty", Number(event.target.value))}
+                      step="0.01"
+                      value={item.oldPrice}
+                      onChange={(event) => setItem(index, "oldPrice", Number(event.target.value))}
                     />
                   </Field>
-                  <Field label="سعر الوحدة">
+                  <Field label="السعر بعد الخصم">
                     <Input
                       type="number"
                       min={0}
@@ -426,7 +477,7 @@ export default function Home() {
               variant="outline"
               className="add-item"
               onClick={() =>
-                set("items", [...draft.items, { name: "", description: "-", qty: 1, price: 0 }])
+                set("items", [...draft.items, emptyItem()])
               }
             >
               <Plus /> إضافة بند
@@ -436,7 +487,7 @@ export default function Home() {
           <section>
             <h2>الحساب والملاحظات</h2>
             <div className="two">
-              <Field label="الخصم (ريال)">
+              <Field label="خصم إضافي (ريال)">
                 <Input
                   type="number"
                   min={0}
@@ -502,12 +553,18 @@ export default function Home() {
                   <div><b>{draft.clientName || "اسم العميل"}</b><span>{draft.clientNumber}</span></div>
                 </div>
                 <table>
-                  <thead><tr><th>الصنف</th><th>الوصف</th><th>العدد</th><th>سعر الوحدة</th><th>الإجمالي</th></tr></thead>
+                  <colgroup>
+                    <col style={{ width: "21%" }} /><col style={{ width: "23%" }} /><col style={{ width: "8%" }} />
+                    <col style={{ width: "15%" }} /><col style={{ width: "16%" }} /><col style={{ width: "17%" }} />
+                  </colgroup>
+                  <thead><tr><th>الصنف</th><th>الوصف</th><th>العدد</th><th>السعر السابق</th><th>السعر بعد الخصم</th><th>الإجمالي</th></tr></thead>
                   <tbody>
                     {draft.items.map((item, index) => (
                       <tr key={index}>
                         <td><b>{item.name || "-"}</b></td><td>{item.description || "-"}</td>
-                        <td>{item.qty || 0}</td><td>{money(item.price)}</td>
+                        <td>{item.qty || 0}</td>
+                        <td>{previousPrice(item) === null ? "-" : <s className="old-price">{money(previousPrice(item)!)}</s>}</td>
+                        <td>{money(item.price)}</td>
                         <td><b>{money((item.qty || 0) * (item.price || 0))}</b></td>
                       </tr>
                     ))}
@@ -515,6 +572,7 @@ export default function Home() {
                 </table>
                 <div className="summary">
                   <b>المجموع قبل الخصم:</b><strong>{money(totals.subtotal)}</strong>
+                  <b>قيمة الخصم:</b><strong className="discount-value">{totals.discountTotal > 0 ? `- ${money(totals.discountTotal)}` : money(0)}</strong>
                   <b>المجموع بعد الخصم:</b><strong>{money(totals.afterDiscount)}</strong>
                   <b>الضريبة ({draft.tax || 0}%):</b><strong>{money(totals.taxAmount)}</strong>
                   <div><b>الإجمالي شامل الضريبة:</b><strong>{money(totals.grand)}</strong></div>

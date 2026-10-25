@@ -7,6 +7,7 @@ type QuoteItem = {
   name: string;
   description: string;
   qty: number;
+  oldPrice: number;
   price: number;
 };
 
@@ -35,6 +36,7 @@ export type QuotePdfData = {
   items: QuoteItem[];
   totals: {
     subtotal: number;
+    discountTotal: number;
     afterDiscount: number;
     taxAmount: number;
     grand: number;
@@ -49,6 +51,9 @@ const money = (value: number) =>
   `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value || 0)} ريال`;
 
 const displayDate = (value: string) => (value ? value.replaceAll("-", "/") : "-");
+
+const previousPrice = (item: QuoteItem) =>
+  (Number(item.oldPrice) || 0) > (Number(item.price) || 0) ? Number(item.oldPrice) : null;
 
 function loadImage(source: string) {
   return new Promise<HTMLImageElement | null>((resolve) => {
@@ -145,13 +150,14 @@ async function renderQuotation(data: QuotePdfData) {
   const measureContext = measureCanvas.getContext("2d");
   if (!measureContext) throw new Error("تعذر تجهيز ملف PDF");
 
-  const rows = data.items.length ? data.items : [{ name: "-", description: "-", qty: 0, price: 0 }];
+  const rows = data.items.length ? data.items : [{ name: "-", description: "-", qty: 0, oldPrice: 0, price: 0 }];
   const tableTop = 360;
   const tableHeaderHeight = 44;
   const tableRowHeight = 46;
   const tableBottom = tableTop + tableHeaderHeight + rows.length * tableRowHeight;
   const summaryTop = tableBottom + 22;
-  const grandTop = summaryTop + 80;
+  const summaryRowCount = 4;
+  const grandTop = summaryTop + summaryRowCount * 25 + 5;
   const grandBottom = grandTop + 48;
   const validityY = grandBottom + 34;
   const notesTop = validityY + 32;
@@ -232,11 +238,12 @@ async function renderQuotation(data: QuotePdfData) {
   // Items table, ordered visually from left to right so the item name lands on the right.
   const tableX = 40;
   const columns = [
-    { title: "الإجمالي", width: 140 },
-    { title: "سعر الوحدة", width: 130 },
-    { title: "العدد", width: 70 },
-    { title: "الوصف", width: 214 },
-    { title: "الصنف", width: 160 },
+    { title: "الإجمالي", width: 120 },
+    { title: "السعر بعد الخصم", width: 126 },
+    { title: "السعر السابق", width: 112 },
+    { title: "العدد", width: 56 },
+    { title: "الوصف", width: 150 },
+    { title: "الصنف", width: 150 },
   ];
   const tableWidth = columns.reduce((sum, column) => sum + column.width, 0);
   context.fillStyle = data.brand.accent;
@@ -249,7 +256,7 @@ async function renderQuotation(data: QuotePdfData) {
   context.textAlign = "center";
   context.textBaseline = "middle";
   context.fillStyle = "#ffffff";
-  context.font = `800 14px ${fontFamily}`;
+  context.font = `800 13px ${fontFamily}`;
   columns.forEach((column, index) => {
     context.fillText(column.title, columnX + column.width / 2, tableTop + tableHeaderHeight / 2);
     columnX += column.width;
@@ -270,22 +277,36 @@ async function renderQuotation(data: QuotePdfData) {
     context.lineTo(tableX + tableWidth, y);
     context.stroke();
 
+    const oldPrice = previousPrice(item);
     const values = [
       money((Number(item.qty) || 0) * (Number(item.price) || 0)),
       money(Number(item.price) || 0),
+      oldPrice === null ? "-" : money(oldPrice),
       String(Number(item.qty) || 0),
       item.description || "-",
       item.name || "-",
     ];
+    const oldPriceColumn = 2;
     let cellX = tableX;
     values.forEach((value, index) => {
-      context.fillStyle = "#171829";
-      context.font = `${index === 0 || index === 4 ? "700" : "400"} 13px ${fontFamily}`;
-      context.fillText(
-        clippedText(context, value, columns[index].width - 12),
-        cellX + columns[index].width / 2,
-        y + tableRowHeight / 2,
-      );
+      const struck = index === oldPriceColumn && oldPrice !== null;
+      const text = clippedText(context, value, columns[index].width - 12);
+      const centerX = cellX + columns[index].width / 2;
+      const centerY = y + tableRowHeight / 2;
+      context.fillStyle = struck ? "#6b7280" : "#171829";
+      context.font = `${index === 0 || index === 5 ? "700" : "400"} 13px ${fontFamily}`;
+      context.fillText(text, centerX, centerY);
+      if (struck) {
+        const halfWidth = context.measureText(text).width / 2;
+        context.strokeStyle = "#6b7280";
+        context.lineWidth = 1.2;
+        context.beginPath();
+        context.moveTo(centerX - halfWidth, centerY);
+        context.lineTo(centerX + halfWidth, centerY);
+        context.stroke();
+        context.strokeStyle = data.brand.dark;
+        context.lineWidth = 2;
+      }
       cellX += columns[index].width;
     });
   });
@@ -295,15 +316,21 @@ async function renderQuotation(data: QuotePdfData) {
   context.font = `700 14px ${fontFamily}`;
   const summaryRows = [
     ["المجموع قبل الخصم:", money(data.totals.subtotal)],
+    [
+      "قيمة الخصم:",
+      data.totals.discountTotal > 0 ? `- ${money(data.totals.discountTotal)}` : money(0),
+      "#b42318",
+    ],
     ["المجموع بعد الخصم:", money(data.totals.afterDiscount)],
     [`الضريبة (${data.tax || 0}%):`, money(data.totals.taxAmount)],
   ];
-  summaryRows.forEach(([label, value], index) => {
+  summaryRows.forEach(([label, value, valueColor], index) => {
     const y = summaryTop + index * 25;
     context.fillStyle = "#171829";
     context.textAlign = "right";
     context.fillText(label, 754, y + 15);
     context.textAlign = "left";
+    context.fillStyle = valueColor ?? "#171829";
     context.fillText(value, 40, y + 15);
   });
 
