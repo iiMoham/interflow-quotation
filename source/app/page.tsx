@@ -299,7 +299,6 @@ export default function Home() {
     }));
   const noteLines = draft.notes.split("\n").map((line) => line.trim()).filter(Boolean);
   if (!noteLines.length) noteLines.push("-");
-  const savingsPercent = totals.subtotal > 0 ? Math.round((totals.discountTotal / totals.subtotal) * 100) : 0;
   const printQuote = () => window.print();
   const downloadPdf = async () => {
     if (pdfGenerating) return;
@@ -657,14 +656,7 @@ export default function Home() {
                         <td className="row-number">{index + 1}</td>
                         <td><b>{item.name || "-"}</b></td><td>{item.description || "-"}</td>
                         <td>{item.qty || 0}</td>
-                        <td>
-                          {previousPrice(item) === null ? "-" : (
-                            <>
-                              <s className="old-price">{money(previousPrice(item)!)}</s>
-                              <span className="discount-badge">خصم {discountPercent(item)}%</span>
-                            </>
-                          )}
-                        </td>
+                        <td>{previousPrice(item) === null ? "-" : <s className="old-price">{money(previousPrice(item)!)}</s>}</td>
                         <td>{money(item.price)}</td>
                         <td><b>{money((item.qty || 0) * (item.price || 0))}</b></td>
                       </tr>
@@ -675,9 +667,6 @@ export default function Home() {
                   <div className="amount-words">
                     <span className="info-label">المبلغ كتابةً</span>
                     <p>{amountInWords(totals.grand)}</p>
-                    {totals.discountTotal > 0 && (
-                      <span className="savings-badge">وفّرت {money(totals.discountTotal)} ({savingsPercent}%)</span>
-                    )}
                     <p className="validity">هذا العرض صالح لمدة {daysText(draft.validDays || 0)} من تاريخ الإصدار</p>
                     <div className="notes">
                       <b>ملاحظات</b>

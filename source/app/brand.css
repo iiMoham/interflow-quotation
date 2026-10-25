@@ -601,14 +601,6 @@ html [data-sonner-toaster] {
   font-weight: 700;
 }
 
-.items-table .old-price {
-  display: block;
-}
-
-.items-table .discount-badge {
-  margin-top: 3px;
-}
-
 .totals-row {
   display: grid;
   flex: 1;
@@ -636,26 +628,15 @@ html [data-sonner-toaster] {
   margin: 0;
   font-size: 13px;
   font-weight: 700;
-  line-height: 1.7;
+  line-height: 1.6;
 }
 
 .amount-words .validity {
-  margin: 4px 0 0;
+  margin: 0;
   color: var(--muted);
   font-size: 12px;
   font-weight: 400;
   text-align: right;
-}
-
-.savings-badge {
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: #e8f6ee;
-  color: #0f7b4f;
-  font-size: 12px;
-  font-weight: 800;
-  -webkit-print-color-adjust: exact;
-  print-color-adjust: exact;
 }
 
 .totals-card {
@@ -709,7 +690,7 @@ html [data-sonner-toaster] {
 
 .amount-words .notes {
   align-self: stretch;
-  margin-top: 8px;
+  margin-top: 10px;
 }
 
 .totals-side .platform-stamp {

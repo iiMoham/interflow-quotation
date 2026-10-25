@@ -160,27 +160,6 @@ const MUTED = "#6b7280";
 const CARD_BORDER = "#e3e7ee";
 const CARD_SURFACE = "#fafbfc";
 const DISCOUNT_RED = "#b42318";
-const SAVINGS_GREEN = "#0f7b4f";
-
-function pill(
-  context: CanvasRenderingContext2D,
-  text: string,
-  x: number,
-  y: number,
-  height: number,
-  colors: { background: string; text: string },
-  anchor: "center" | "right",
-) {
-  const width = context.measureText(text).width + height;
-  const left = anchor === "center" ? x - width / 2 : x - width;
-  context.fillStyle = colors.background;
-  roundedRect(context, left, y, width, height, height / 2);
-  context.fill();
-  context.fillStyle = colors.text;
-  context.textAlign = "center";
-  context.textBaseline = "middle";
-  context.fillText(text, left + width / 2, y + height / 2 + 1);
-}
 
 async function renderQuotation(data: QuotePdfData) {
   const [logo, stamp] = await Promise.all([
@@ -216,8 +195,7 @@ async function renderQuotation(data: QuotePdfData) {
 
   measureContext.font = `700 13px ${fontFamily}`;
   const wordsLines = wrapText(measureContext, amountInWords(data.totals.grand), 340);
-  const savingsTop = totalsTop + 30 + wordsLines.length * 21;
-  const validityY = savingsTop + (hasDiscount ? 46 : 12);
+  const validityY = totalsTop + 38 + wordsLines.length * 21;
 
   // Right column: notes sit under the amount in words. Left column: stamp under the totals.
   const notesX = 394;
@@ -432,19 +410,15 @@ async function renderQuotation(data: QuotePdfData) {
       context.textBaseline = "middle";
       const text = clippedText(context, value, columns[index].width - 12);
       if (index === oldPriceColumn && oldPrice !== null) {
-        const textY = centerY - 8;
         context.fillStyle = MUTED;
-        context.fillText(text, centerX, textY);
+        context.fillText(text, centerX, centerY);
         const halfWidth = context.measureText(text).width / 2;
         context.strokeStyle = MUTED;
         context.lineWidth = 1.2;
         context.beginPath();
-        context.moveTo(centerX - halfWidth, textY);
-        context.lineTo(centerX + halfWidth, textY);
+        context.moveTo(centerX - halfWidth, centerY);
+        context.lineTo(centerX + halfWidth, centerY);
         context.stroke();
-        const percent = Math.round((1 - (Number(item.price) || 0) / oldPrice) * 100);
-        context.font = `800 10px ${fontFamily}`;
-        pill(context, `خصم ${percent}%`, centerX, centerY + 4, 16, { background: "#fdecea", text: DISCOUNT_RED }, "center");
       } else {
         context.fillStyle = index === 6 ? "#8a91a0" : INK;
         context.fillText(text, centerX, centerY);
@@ -497,7 +471,7 @@ async function renderQuotation(data: QuotePdfData) {
   context.textAlign = "left";
   context.fillText(money(data.totals.grand), totalsX + 14, grandTop + grandHeight / 2);
 
-  // Amount in words, savings and validity on the right
+  // Amount in words and validity on the right
   context.textBaseline = "alphabetic";
   context.textAlign = "right";
   context.fillStyle = data.brand.accent;
@@ -505,22 +479,7 @@ async function renderQuotation(data: QuotePdfData) {
   context.fillText("المبلغ كتابةً", 754, totalsTop + 16);
   context.fillStyle = INK;
   context.font = `700 13px ${fontFamily}`;
-  wordsLines.forEach((line, index) => context.fillText(line, 754, totalsTop + 40 + index * 21));
-  if (hasDiscount) {
-    const percent = data.totals.subtotal > 0 ? Math.round((data.totals.discountTotal / data.totals.subtotal) * 100) : 0;
-    context.font = `800 12px ${fontFamily}`;
-    pill(
-      context,
-      `وفّرت ${money(data.totals.discountTotal)} (${percent}%)`,
-      754,
-      savingsTop,
-      26,
-      { background: "#e8f6ee", text: SAVINGS_GREEN },
-      "right",
-    );
-  }
-  context.textBaseline = "alphabetic";
-  context.textAlign = "right";
+  wordsLines.forEach((line, index) => context.fillText(line, 754, totalsTop + 37 + index * 21));
   context.fillStyle = MUTED;
   context.font = `12px ${fontFamily}`;
   context.fillText(`هذا العرض صالح لمدة ${daysText(data.validDays || 0)} من تاريخ الإصدار`, 754, validityY);
