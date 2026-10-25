@@ -622,12 +622,11 @@ export default function Home() {
               </header>
               <div className="quote-body">
                 <div className="quote-title">
-                  <h2>{draft.status || "عرض سعر"}</h2>
-                  <span className="quote-title-en">QUOTATION</span>
-                  <div className="quote-number-badge">
-                    <span>رقم العرض</span>
-                    <bdi>{draft.quoteNumber || "..."}</bdi>
+                  <div>
+                    <h2>{draft.status || "عرض سعر"}</h2>
+                    <span className="quote-title-en">QUOTATION</span>
                   </div>
+                  <span className="quote-title-rule" aria-hidden="true" />
                 </div>
                 <div className="info-cards">
                   <div className="info-card">
@@ -638,6 +637,7 @@ export default function Home() {
                   <div className="info-card">
                     <span className="info-label">تفاصيل العرض</span>
                     <dl>
+                      <dt>رقم العرض</dt><dd className="quote-number"><bdi>{draft.quoteNumber || "..."}</bdi></dd>
                       <dt>تاريخ الإصدار</dt><dd>{displayDate(draft.issueDate)}</dd>
                       <dt>صالح حتى</dt><dd>{displayDate(draft.expiryDate)}</dd>
                       <dt>حالة الطلب</dt><dd className="status-value">{draft.status || "-"}</dd>

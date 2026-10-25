@@ -196,8 +196,8 @@ async function renderQuotation(data: QuotePdfData) {
   const hasDiscount = data.totals.discountTotal > 0;
 
   // Vertical layout, top to bottom.
-  const cardsTop = 230;
-  const cardsHeight = 100;
+  const cardsTop = 186;
+  const cardsHeight = 122;
   const tableTop = cardsTop + cardsHeight + 22;
   const tableHeaderHeight = 40;
   const tableRowHeight = 46;
@@ -273,51 +273,31 @@ async function renderQuotation(data: QuotePdfData) {
   context.textAlign = "left";
   context.fillText(data.brand.domain, 34, 51);
 
-  // Dynamic quote heading: it mirrors the status field.
+  // Title row: status title and QUOTATION on the right, a fading accent rule to the left.
+  const title = data.status || "عرض سعر";
   context.fillStyle = data.brand.accent;
-  context.font = `800 42px ${fontFamily}`;
-  context.textAlign = "center";
-  context.fillText(data.status || "عرض سعر", PAGE_WIDTH / 2, 140);
+  context.font = `800 36px ${fontFamily}`;
+  context.textAlign = "right";
+  context.fillText(title, 754, 140);
+  const titleWidth = context.measureText(title).width;
 
   context.fillStyle = "#8a91a0";
-  context.font = `700 12px ${fontFamily}`;
+  context.font = `700 11px ${fontFamily}`;
   context.direction = "ltr";
-  context.letterSpacing = "4.8px";
-  context.fillText("QUOTATION", PAGE_WIDTH / 2, 162);
+  context.letterSpacing = "4.4px";
+  // Letter spacing trails the last letter, so shift right by one gap to stay flush.
+  context.fillText("QUOTATION", 754 + 4.4, 160);
+  const subtitleWidth = context.measureText("QUOTATION").width;
   context.letterSpacing = "0px";
-
-  // Number badge: "رقم العرض" on the right, the number on the left.
-  const quoteNumber = data.quoteNumber || "...";
-  context.font = `800 18px ${fontFamily}`;
-  const numberWidth = context.measureText(quoteNumber).width;
-  context.font = `700 12px ${fontFamily}`;
-  const badgeLabel = "رقم العرض";
-  const labelWidth = context.measureText(badgeLabel).width;
-  const badgeHeight = 34;
-  const badgeWidth = 16 + labelWidth + 10 + numberWidth + 16;
-  const badgeX = PAGE_WIDTH / 2 - badgeWidth / 2;
-  const badgeTop = 176;
-  roundedRect(context, badgeX, badgeTop, badgeWidth, badgeHeight, badgeHeight / 2);
-  context.save();
-  context.fillStyle = data.brand.accent;
-  context.globalAlpha = 0.07;
-  context.fill();
-  context.strokeStyle = data.brand.accent;
-  context.globalAlpha = 0.45;
-  context.lineWidth = 1;
-  context.stroke();
-  context.restore();
-  context.textBaseline = "middle";
-  context.textAlign = "left";
-  context.fillStyle = data.brand.dark;
-  context.font = `800 18px ${fontFamily}`;
-  context.fillText(quoteNumber, badgeX + 16, badgeTop + badgeHeight / 2 + 1);
   context.direction = "rtl";
-  context.textAlign = "right";
-  context.fillStyle = MUTED;
-  context.font = `700 12px ${fontFamily}`;
-  context.fillText(badgeLabel, badgeX + badgeWidth - 16, badgeTop + badgeHeight / 2 + 1);
-  context.textBaseline = "alphabetic";
+
+  const ruleRight = 754 - Math.max(titleWidth, subtitleWidth) - 18;
+  const rule = context.createLinearGradient(ruleRight, 0, 40, 0);
+  rule.addColorStop(0, data.brand.accent);
+  rule.addColorStop(1, `${data.brand.accent}00`);
+  context.fillStyle = rule;
+  roundedRect(context, 40, 136, ruleRight - 40, 2, 1);
+  context.fill();
 
   // Client and quote detail cards
   const cardWidth = (714 - 12) / 2;
@@ -352,6 +332,7 @@ async function renderQuotation(data: QuotePdfData) {
   }
 
   [
+    ["رقم العرض", data.quoteNumber || "..."],
     ["تاريخ الإصدار", displayDate(data.issueDate)],
     ["صالح حتى", displayDate(data.expiryDate)],
     ["حالة الطلب", data.status || "-"],
@@ -362,8 +343,8 @@ async function renderQuotation(data: QuotePdfData) {
     context.font = `13px ${fontFamily}`;
     context.fillText(label, detailsX + cardWidth - 14, y);
     context.textAlign = "left";
-    context.fillStyle = INK;
-    context.font = `700 13px ${fontFamily}`;
+    context.fillStyle = index === 0 ? data.brand.dark : INK;
+    context.font = `${index === 0 ? "800" : "700"} 13px ${fontFamily}`;
     context.fillText(value, detailsX + 14, y);
   });
 
