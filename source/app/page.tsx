@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
-import { Download, Plus, Printer, Trash2 } from "lucide-react";
+import { Copy, Download, Plus, Printer, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { downloadQuoteAsPdf } from "@/lib/pdf-download";
+import { amountInWords, daysText } from "@/lib/tafqit";
 
 type Platform = "interflow" | "roduod";
 
@@ -81,6 +82,14 @@ const DEFAULT_VALID_DAYS = 3;
 const emptyItem = (): Item => ({ name: "", description: "-", qty: 1, oldPrice: 0, price: 0 });
 const previousPrice = (item: Item) =>
   (Number(item.oldPrice) || 0) > (Number(item.price) || 0) ? Number(item.oldPrice) : null;
+const discountPercent = (item: Item) => {
+  const old = previousPrice(item);
+  return old === null ? null : Math.round((1 - (Number(item.price) || 0) / old) * 100);
+};
+const VALIDITY_PRESETS = [3, 7, 14, 30];
+const VAT_RATE = 15;
+// Typing into a number field that shows 0 should replace it, not append to it.
+const selectOnFocus = (event: React.FocusEvent<HTMLInputElement>) => event.currentTarget.select();
 
 const initialDraft = (platform: Platform = "interflow"): Draft => ({
   platform,
@@ -98,8 +107,12 @@ const initialDraft = (platform: Platform = "interflow"): Draft => ({
   items: [emptyItem()],
 });
 
-const money = (value: number) =>
-  `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value || 0)} ريال`;
+// Whole amounts stay short ("500 ريال"); fractional ones always show halalas ("175.50 ريال").
+const money = (value: number) => {
+  const amount = value || 0;
+  const fractionDigits = Number.isInteger(amount) ? 0 : 2;
+  return `${new Intl.NumberFormat("en-US", { minimumFractionDigits: fractionDigits, maximumFractionDigits: 2 }).format(amount)} ريال`;
+};
 const displayDate = (value: string) => (value ? value.replaceAll("-", "/") : "-");
 
 async function fetchServerNumber() {
@@ -275,6 +288,14 @@ export default function Home() {
       window.history.replaceState({}, "", url.toString());
     }
   };
+  const duplicateItem = (index: number) =>
+    setDraft((current) => ({
+      ...current,
+      items: [...current.items.slice(0, index + 1), { ...current.items[index] }, ...current.items.slice(index + 1)],
+    }));
+  const noteLines = draft.notes.split("\n").map((line) => line.trim()).filter(Boolean);
+  if (!noteLines.length) noteLines.push("-");
+  const savingsPercent = totals.subtotal > 0 ? Math.round((totals.discountTotal / totals.subtotal) * 100) : 0;
   const printQuote = () => window.print();
   const downloadPdf = async () => {
     if (pdfGenerating) return;
@@ -397,15 +418,31 @@ export default function Home() {
                   type="number"
                   min={1}
                   value={draft.validDays}
+                  onFocus={selectOnFocus}
                   onChange={(event) => setValidDays(Number(event.target.value))}
                 />
               </Field>
+            </div>
+            <div className="chips" role="group" aria-label="مدة صلاحية سريعة">
+              <span>صلاحية سريعة:</span>
+              {VALIDITY_PRESETS.map((days) => (
+                <button
+                  key={days}
+                  type="button"
+                  className={`chip${draft.validDays === days ? " is-active" : ""}`}
+                  aria-pressed={draft.validDays === days}
+                  onClick={() => setValidDays(days)}
+                >
+                  {daysText(days)}
+                </button>
+              ))}
             </div>
             <Field label="اسم العميل / المؤسسة">
               <Input
                 value={draft.clientName}
                 onChange={(event) => set("clientName", event.target.value)}
                 placeholder="مثال: مؤسسة الندى"
+                aria-invalid={!draft.clientName.trim() || undefined}
               />
             </Field>
             <Field label="الرقم الضريبي أو السجل">
@@ -423,13 +460,25 @@ export default function Home() {
               <div className="item-card" key={index}>
                 <div className="item-heading">
                   <strong>البند {index + 1}</strong>
-                  <button
-                    className="remove"
-                    disabled={draft.items.length === 1}
-                    onClick={() => set("items", draft.items.filter((_, i) => i !== index))}
-                  >
-                    <Trash2 /> حذف
-                  </button>
+                  <span className="item-total">
+                    {money((Number(item.qty) || 0) * (Number(item.price) || 0))}
+                    {discountPercent(item) !== null && (
+                      <span className="discount-badge">خصم {discountPercent(item)}%</span>
+                    )}
+                  </span>
+                  <span className="item-tools">
+                    <button type="button" className="duplicate" onClick={() => duplicateItem(index)} title="تكرار البند">
+                      <Copy /> تكرار
+                    </button>
+                    <button
+                      type="button"
+                      className="remove"
+                      disabled={draft.items.length === 1}
+                      onClick={() => set("items", draft.items.filter((_, i) => i !== index))}
+                    >
+                      <Trash2 /> حذف
+                    </button>
+                  </span>
                 </div>
                 <Field label="اسم الصنف">
                   <Input
@@ -448,6 +497,7 @@ export default function Home() {
                     type="number"
                     min={0}
                     value={item.qty}
+                    onFocus={selectOnFocus}
                     onChange={(event) => setItem(index, "qty", Number(event.target.value))}
                   />
                 </Field>
@@ -458,6 +508,7 @@ export default function Home() {
                       min={0}
                       step="0.01"
                       value={item.oldPrice}
+                      onFocus={selectOnFocus}
                       onChange={(event) => setItem(index, "oldPrice", Number(event.target.value))}
                     />
                   </Field>
@@ -467,6 +518,7 @@ export default function Home() {
                       min={0}
                       step="0.01"
                       value={item.price}
+                      onFocus={selectOnFocus}
                       onChange={(event) => setItem(index, "price", Number(event.target.value))}
                     />
                   </Field>
@@ -492,6 +544,7 @@ export default function Home() {
                   type="number"
                   min={0}
                   value={draft.discount}
+                  onFocus={selectOnFocus}
                   onChange={(event) => set("discount", Number(event.target.value))}
                 />
               </Field>
@@ -500,9 +553,20 @@ export default function Home() {
                   type="number"
                   min={0}
                   value={draft.tax}
+                  onFocus={selectOnFocus}
                   onChange={(event) => set("tax", Number(event.target.value))}
                 />
               </Field>
+            </div>
+            <div className="chips">
+              <button
+                type="button"
+                className={`chip${draft.tax === VAT_RATE ? " is-active" : ""}`}
+                aria-pressed={draft.tax === VAT_RATE}
+                onClick={() => set("tax", draft.tax === VAT_RATE ? 0 : VAT_RATE)}
+              >
+                {draft.tax === VAT_RATE ? "✓ " : ""}ضريبة القيمة المضافة {VAT_RATE}%
+              </button>
             </div>
             <Field label="الملاحظات">
               <Textarea value={draft.notes} onChange={(event) => set("notes", event.target.value)} />
@@ -526,6 +590,9 @@ export default function Home() {
               <Printer /> طباعة
             </Button>
           </div>
+          {!draft.clientName.trim() && (
+            <p className="client-reminder">تنبيه: لم يُكتب اسم العميل بعد، وسيظهر في العرض «اسم العميل».</p>
+          )}
           {pdfError && <p className="pdf-error" role="alert">{pdfError}</p>}
         </aside>
 
@@ -542,43 +609,75 @@ export default function Home() {
                 <span>{brand.domain}</span>
               </header>
               <div className="quote-body">
-                <div className="meta">
-                  <div><b>تاريخ الإصدار:</b> {displayDate(draft.issueDate)}</div>
-                  <div><b>صالح حتى:</b> {displayDate(draft.expiryDate)}</div>
-                  <div><b>حالة الطلب:</b> <span className="status-value">{draft.status || "-"}</span></div>
-                </div>
                 <div className="quote-title">
                   <h2>{draft.status || "عرض سعر"}</h2>
                   <strong>{draft.quoteNumber || "..."}</strong>
-                  <div><b>{draft.clientName || "اسم العميل"}</b><span>{draft.clientNumber}</span></div>
                 </div>
-                <table>
+                <div className="info-cards">
+                  <div className="info-card">
+                    <span className="info-label">مقدَّم إلى</span>
+                    <b className="client-name">{draft.clientName || "اسم العميل"}</b>
+                    {draft.clientNumber && <span className="client-number">الرقم الضريبي / السجل: <bdi>{draft.clientNumber}</bdi></span>}
+                  </div>
+                  <div className="info-card">
+                    <span className="info-label">تفاصيل العرض</span>
+                    <dl>
+                      <dt>تاريخ الإصدار</dt><dd>{displayDate(draft.issueDate)}</dd>
+                      <dt>صالح حتى</dt><dd>{displayDate(draft.expiryDate)}</dd>
+                      <dt>حالة الطلب</dt><dd className="status-value">{draft.status || "-"}</dd>
+                    </dl>
+                  </div>
+                </div>
+                <table className="items-table">
                   <colgroup>
-                    <col style={{ width: "21%" }} /><col style={{ width: "23%" }} /><col style={{ width: "8%" }} />
-                    <col style={{ width: "15%" }} /><col style={{ width: "16%" }} /><col style={{ width: "17%" }} />
+                    <col style={{ width: "5%" }} /><col style={{ width: "19%" }} /><col style={{ width: "21%" }} />
+                    <col style={{ width: "7%" }} /><col style={{ width: "15%" }} /><col style={{ width: "16%" }} />
+                    <col style={{ width: "17%" }} />
                   </colgroup>
-                  <thead><tr><th>الصنف</th><th>الوصف</th><th>العدد</th><th>السعر السابق</th><th>السعر بعد الخصم</th><th>الإجمالي</th></tr></thead>
+                  <thead><tr><th>#</th><th>الصنف</th><th>الوصف</th><th>العدد</th><th>السعر السابق</th><th>السعر بعد الخصم</th><th>الإجمالي</th></tr></thead>
                   <tbody>
                     {draft.items.map((item, index) => (
                       <tr key={index}>
+                        <td className="row-number">{index + 1}</td>
                         <td><b>{item.name || "-"}</b></td><td>{item.description || "-"}</td>
                         <td>{item.qty || 0}</td>
-                        <td>{previousPrice(item) === null ? "-" : <s className="old-price">{money(previousPrice(item)!)}</s>}</td>
+                        <td>
+                          {previousPrice(item) === null ? "-" : (
+                            <>
+                              <s className="old-price">{money(previousPrice(item)!)}</s>
+                              <span className="discount-badge">خصم {discountPercent(item)}%</span>
+                            </>
+                          )}
+                        </td>
                         <td>{money(item.price)}</td>
                         <td><b>{money((item.qty || 0) * (item.price || 0))}</b></td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-                <div className="summary">
-                  <b>المجموع قبل الخصم:</b><strong>{money(totals.subtotal)}</strong>
-                  <b>قيمة الخصم:</b><strong className="discount-value">{totals.discountTotal > 0 ? `- ${money(totals.discountTotal)}` : money(0)}</strong>
-                  <b>المجموع بعد الخصم:</b><strong>{money(totals.afterDiscount)}</strong>
-                  <b>الضريبة ({draft.tax || 0}%):</b><strong>{money(totals.taxAmount)}</strong>
-                  <div><b>الإجمالي شامل الضريبة:</b><strong>{money(totals.grand)}</strong></div>
+                <div className="totals-row">
+                  <div className="amount-words">
+                    <span className="info-label">المبلغ كتابةً</span>
+                    <p>{amountInWords(totals.grand)}</p>
+                    {totals.discountTotal > 0 && (
+                      <span className="savings-badge">وفّرت {money(totals.discountTotal)} ({savingsPercent}%)</span>
+                    )}
+                    <p className="validity">هذا العرض صالح لمدة {daysText(draft.validDays || 0)} من تاريخ الإصدار</p>
+                  </div>
+                  <div className="totals-card">
+                    <div><span>المجموع قبل الخصم</span><b>{money(totals.subtotal)}</b></div>
+                    <div className="discount-value"><span>قيمة الخصم</span><b>{totals.discountTotal > 0 ? `- ${money(totals.discountTotal)}` : money(0)}</b></div>
+                    <div><span>المجموع بعد الخصم</span><b>{money(totals.afterDiscount)}</b></div>
+                    <div><span>الضريبة ({draft.tax || 0}%)</span><b>{money(totals.taxAmount)}</b></div>
+                    <div className="grand-total"><span>الإجمالي شامل الضريبة</span><b>{money(totals.grand)}</b></div>
+                  </div>
                 </div>
-                <p className="validity">هذا العرض صالح لمدة {draft.validDays || 0} أيام من تاريخ الإصدار</p>
-                <div className="notes"><b>ملاحظة:</b><p>{draft.notes || "-"}</p></div>
+                <div className="notes">
+                  <b>ملاحظات</b>
+                  <ul>
+                    {noteLines.map((line, index) => <li key={index}>{line}</li>)}
+                  </ul>
+                </div>
                 <PlatformStamp platform={draft.platform} brand={brand} />
               </div>
               <footer>

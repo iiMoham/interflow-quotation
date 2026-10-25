@@ -1,7 +1,9 @@
+import { amountInWords, daysText } from "./tafqit";
+
 const A4_WIDTH = 595.28;
 const A4_HEIGHT = 841.89;
 const PAGE_WIDTH = 794;
-const RENDER_SCALE = 2;
+const RENDER_SCALE = 3;
 
 type QuoteItem = {
   name: string;
@@ -47,8 +49,11 @@ export type QuotePdfData = {
 const encode = (value: string) => new TextEncoder().encode(value);
 const fontFamily = 'Tahoma, Arial, sans-serif';
 
-const money = (value: number) =>
-  `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value || 0)} ريال`;
+const money = (value: number) => {
+  const amount = value || 0;
+  const fractionDigits = Number.isInteger(amount) ? 0 : 2;
+  return `${new Intl.NumberFormat("en-US", { minimumFractionDigits: fractionDigits, maximumFractionDigits: 2 }).format(amount)} ريال`;
+};
 
 const displayDate = (value: string) => (value ? value.replaceAll("-", "/") : "-");
 
@@ -144,6 +149,33 @@ function clippedText(context: CanvasRenderingContext2D, value: string, maxWidth:
   return `${shortened}…`;
 }
 
+const INK = "#171829";
+const MUTED = "#6b7280";
+const CARD_BORDER = "#e3e7ee";
+const CARD_SURFACE = "#fafbfc";
+const DISCOUNT_RED = "#b42318";
+const SAVINGS_GREEN = "#0f7b4f";
+
+function pill(
+  context: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  height: number,
+  colors: { background: string; text: string },
+  anchor: "center" | "right",
+) {
+  const width = context.measureText(text).width + height;
+  const left = anchor === "center" ? x - width / 2 : x - width;
+  context.fillStyle = colors.background;
+  roundedRect(context, left, y, width, height, height / 2);
+  context.fill();
+  context.fillStyle = colors.text;
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.fillText(text, left + width / 2, y + height / 2 + 1);
+}
+
 async function renderQuotation(data: QuotePdfData) {
   const [logo, stamp] = await Promise.all([loadImage(data.brand.logo), loadImage(data.brand.stamp)]);
   const measureCanvas = document.createElement("canvas");
@@ -151,20 +183,43 @@ async function renderQuotation(data: QuotePdfData) {
   if (!measureContext) throw new Error("تعذر تجهيز ملف PDF");
 
   const rows = data.items.length ? data.items : [{ name: "-", description: "-", qty: 0, oldPrice: 0, price: 0 }];
-  const tableTop = 360;
-  const tableHeaderHeight = 44;
+  const hasDiscount = data.totals.discountTotal > 0;
+
+  // Vertical layout, top to bottom.
+  const cardsTop = 222;
+  const cardsHeight = 100;
+  const tableTop = cardsTop + cardsHeight + 22;
+  const tableHeaderHeight = 40;
   const tableRowHeight = 46;
   const tableBottom = tableTop + tableHeaderHeight + rows.length * tableRowHeight;
-  const summaryTop = tableBottom + 22;
-  const summaryRowCount = 4;
-  const grandTop = summaryTop + summaryRowCount * 25 + 5;
-  const grandBottom = grandTop + 48;
-  const validityY = grandBottom + 34;
-  const notesTop = validityY + 32;
+
+  const totalsTop = tableBottom + 20;
+  const totalsRowHeight = 30;
+  const totalsRows: [string, string, string?][] = [
+    ["المجموع قبل الخصم", money(data.totals.subtotal)],
+    ["قيمة الخصم", hasDiscount ? `- ${money(data.totals.discountTotal)}` : money(0), DISCOUNT_RED],
+    ["المجموع بعد الخصم", money(data.totals.afterDiscount)],
+    [`الضريبة (${data.tax || 0}%)`, money(data.totals.taxAmount)],
+  ];
+  const grandHeight = 46;
+  const totalsCardHeight = totalsRows.length * totalsRowHeight + grandHeight;
+
+  measureContext.font = `700 13px ${fontFamily}`;
+  const wordsLines = wrapText(measureContext, amountInWords(data.totals.grand), 340);
+  const savingsTop = totalsTop + 30 + wordsLines.length * 21;
+  const validityY = savingsTop + (hasDiscount ? 46 : 12);
+  const totalsBottom = totalsTop + Math.max(totalsCardHeight, validityY - totalsTop + 8);
 
   measureContext.font = `13px ${fontFamily}`;
-  const noteLines = wrapText(measureContext, data.notes, 674);
-  const notesBottom = notesTop + 31 + noteLines.length * 19;
+  const noteRows = (data.notes || "-")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .flatMap((line) => wrapText(measureContext, line, 640).map((text, index) => ({ text, bullet: index === 0 })));
+  if (!noteRows.length) noteRows.push({ text: "-", bullet: true });
+  const notesTop = totalsBottom + 20;
+  const notesBottom = notesTop + 44 + noteRows.length * 20;
+
   const stampTop = notesBottom + 8;
   const stampHeight = data.platform === "interflow" ? 115 : 155;
   const footerTop = Math.max(1059, stampTop + stampHeight + 20);
@@ -201,82 +256,139 @@ async function renderQuotation(data: QuotePdfData) {
   context.textAlign = "left";
   context.fillText(data.brand.domain, 34, 51);
 
-  // Metadata
-  context.fillStyle = "#171829";
-  context.font = `14px ${fontFamily}`;
-  context.textAlign = "right";
-  context.fillText(`تاريخ الإصدار: ${displayDate(data.issueDate)}`, 754, 126);
-  context.fillText(`صالح حتى: ${displayDate(data.expiryDate)}`, 754, 152);
-  context.fillText(`حالة الطلب: ${data.status || "-"}`, 754, 178);
-
   // Dynamic quote heading: it mirrors the status field.
   context.fillStyle = data.brand.accent;
   context.font = `800 42px ${fontFamily}`;
   context.textAlign = "center";
-  context.fillText(data.status || "عرض سعر", PAGE_WIDTH / 2, 235);
+  context.fillText(data.status || "عرض سعر", PAGE_WIDTH / 2, 150);
 
-  context.fillStyle = "#171829";
+  context.fillStyle = INK;
+  context.strokeStyle = INK;
   context.font = `800 27px ${fontFamily}`;
   context.direction = "ltr";
   const quoteNumber = data.quoteNumber || "...";
-  context.fillText(quoteNumber, PAGE_WIDTH / 2, 278);
+  context.fillText(quoteNumber, PAGE_WIDTH / 2, 192);
   const numberWidth = context.measureText(quoteNumber).width;
   context.lineWidth = 1.5;
   context.beginPath();
-  context.moveTo(PAGE_WIDTH / 2 - numberWidth / 2, 283);
-  context.lineTo(PAGE_WIDTH / 2 + numberWidth / 2, 283);
+  context.moveTo(PAGE_WIDTH / 2 - numberWidth / 2, 197);
+  context.lineTo(PAGE_WIDTH / 2 + numberWidth / 2, 197);
   context.stroke();
+  context.direction = "rtl";
 
-  context.direction = "rtl";
-  context.font = `800 18px ${fontFamily}`;
-  context.fillText(data.clientName || "اسم العميل", PAGE_WIDTH / 2, 316);
-  context.font = `14px ${fontFamily}`;
-  context.direction = "ltr";
-  context.fillText(data.clientNumber || "", PAGE_WIDTH / 2, 340);
-  context.direction = "rtl";
+  // Client and quote detail cards
+  const cardWidth = (714 - 12) / 2;
+  const clientX = 754 - cardWidth;
+  const detailsX = 40;
+  [clientX, detailsX].forEach((x) => {
+    context.fillStyle = CARD_SURFACE;
+    context.strokeStyle = CARD_BORDER;
+    context.lineWidth = 1;
+    roundedRect(context, x, cardsTop, cardWidth, cardsHeight, 10);
+    context.fill();
+    context.stroke();
+  });
+
+  context.textAlign = "right";
+  context.fillStyle = data.brand.accent;
+  context.font = `800 12px ${fontFamily}`;
+  context.fillText("مقدَّم إلى", clientX + cardWidth - 14, cardsTop + 24);
+  context.fillText("تفاصيل العرض", detailsX + cardWidth - 14, cardsTop + 24);
+
+  context.fillStyle = INK;
+  context.font = `800 17px ${fontFamily}`;
+  context.fillText(clippedText(context, data.clientName || "اسم العميل", cardWidth - 28), clientX + cardWidth - 14, cardsTop + 54);
+  if (data.clientNumber) {
+    context.fillStyle = "#4b5262";
+    context.font = `13px ${fontFamily}`;
+    context.fillText(
+      clippedText(context, `الرقم الضريبي / السجل: ${data.clientNumber}`, cardWidth - 28),
+      clientX + cardWidth - 14,
+      cardsTop + 80,
+    );
+  }
+
+  [
+    ["تاريخ الإصدار", displayDate(data.issueDate)],
+    ["صالح حتى", displayDate(data.expiryDate)],
+    ["حالة الطلب", data.status || "-"],
+  ].forEach(([label, value], index) => {
+    const y = cardsTop + 50 + index * 20;
+    context.textAlign = "right";
+    context.fillStyle = MUTED;
+    context.font = `13px ${fontFamily}`;
+    context.fillText(label, detailsX + cardWidth - 14, y);
+    context.textAlign = "left";
+    context.fillStyle = INK;
+    context.font = `700 13px ${fontFamily}`;
+    context.fillText(value, detailsX + 14, y);
+  });
 
   // Items table, ordered visually from left to right so the item name lands on the right.
   const tableX = 40;
   const columns = [
-    { title: "الإجمالي", width: 120 },
-    { title: "السعر بعد الخصم", width: 126 },
+    { title: "الإجمالي", width: 116 },
+    { title: "السعر بعد الخصم", width: 112 },
     { title: "السعر السابق", width: 112 },
-    { title: "العدد", width: 56 },
+    { title: "العدد", width: 52 },
     { title: "الوصف", width: 150 },
-    { title: "الصنف", width: 150 },
+    { title: "الصنف", width: 136 },
+    { title: "#", width: 36 },
   ];
+  const oldPriceColumn = 2;
   const tableWidth = columns.reduce((sum, column) => sum + column.width, 0);
+  const tableHeight = tableBottom - tableTop;
+
+  context.save();
+  roundedRect(context, tableX, tableTop, tableWidth, tableHeight, 10);
+  context.clip();
   context.fillStyle = data.brand.accent;
   context.fillRect(tableX, tableTop, tableWidth, tableHeaderHeight);
-  context.strokeStyle = data.brand.dark;
-  context.lineWidth = 2;
-  context.strokeRect(tableX, tableTop, tableWidth, tableHeaderHeight + rows.length * tableRowHeight);
-
-  let columnX = tableX;
-  context.textAlign = "center";
-  context.textBaseline = "middle";
-  context.fillStyle = "#ffffff";
-  context.font = `800 13px ${fontFamily}`;
-  columns.forEach((column, index) => {
-    context.fillText(column.title, columnX + column.width / 2, tableTop + tableHeaderHeight / 2);
-    columnX += column.width;
-    if (index < columns.length - 1) {
-      context.beginPath();
-      context.moveTo(columnX, tableTop);
-      context.lineTo(columnX, tableBottom);
-      context.stroke();
-    }
+  rows.forEach((_, rowIndex) => {
+    context.fillStyle = rowIndex % 2 ? "#f7f9fb" : "#ffffff";
+    context.fillRect(tableX, tableTop + tableHeaderHeight + rowIndex * tableRowHeight, tableWidth, tableRowHeight);
   });
-
-  rows.forEach((item, rowIndex) => {
-    const y = tableTop + tableHeaderHeight + rowIndex * tableRowHeight;
-    context.fillStyle = "#ffffff";
-    context.fillRect(tableX, y, tableWidth, tableRowHeight);
+  context.lineWidth = 1;
+  let columnX = tableX;
+  columns.slice(0, -1).forEach((column) => {
+    columnX += column.width;
+    context.strokeStyle = "rgb(255 255 255 / 35%)";
+    context.beginPath();
+    context.moveTo(columnX, tableTop);
+    context.lineTo(columnX, tableTop + tableHeaderHeight);
+    context.stroke();
+    context.strokeStyle = "#eef0f4";
+    context.beginPath();
+    context.moveTo(columnX, tableTop + tableHeaderHeight);
+    context.lineTo(columnX, tableBottom);
+    context.stroke();
+  });
+  context.strokeStyle = "#e6e9ef";
+  rows.slice(1).forEach((_, rowIndex) => {
+    const y = tableTop + tableHeaderHeight + (rowIndex + 1) * tableRowHeight;
     context.beginPath();
     context.moveTo(tableX, y);
     context.lineTo(tableX + tableWidth, y);
     context.stroke();
+  });
+  context.restore();
+  context.strokeStyle = "#dfe4ea";
+  context.lineWidth = 1;
+  roundedRect(context, tableX, tableTop, tableWidth, tableHeight, 10);
+  context.stroke();
 
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.fillStyle = "#ffffff";
+  context.font = `800 13px ${fontFamily}`;
+  columnX = tableX;
+  columns.forEach((column) => {
+    context.fillText(column.title, columnX + column.width / 2, tableTop + tableHeaderHeight / 2);
+    columnX += column.width;
+  });
+
+  rows.forEach((item, rowIndex) => {
+    const centerY = tableTop + tableHeaderHeight + rowIndex * tableRowHeight + tableRowHeight / 2;
     const oldPrice = previousPrice(item);
     const values = [
       money((Number(item.qty) || 0) * (Number(item.price) || 0)),
@@ -285,86 +397,127 @@ async function renderQuotation(data: QuotePdfData) {
       String(Number(item.qty) || 0),
       item.description || "-",
       item.name || "-",
+      String(rowIndex + 1),
     ];
-    const oldPriceColumn = 2;
     let cellX = tableX;
     values.forEach((value, index) => {
-      const struck = index === oldPriceColumn && oldPrice !== null;
-      const text = clippedText(context, value, columns[index].width - 12);
       const centerX = cellX + columns[index].width / 2;
-      const centerY = y + tableRowHeight / 2;
-      context.fillStyle = struck ? "#6b7280" : "#171829";
-      context.font = `${index === 0 || index === 5 ? "700" : "400"} 13px ${fontFamily}`;
-      context.fillText(text, centerX, centerY);
-      if (struck) {
+      const bold = index === 0 || index === 5 || index === 6;
+      context.font = `${bold ? "700" : "400"} 13px ${fontFamily}`;
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      const text = clippedText(context, value, columns[index].width - 12);
+      if (index === oldPriceColumn && oldPrice !== null) {
+        const textY = centerY - 8;
+        context.fillStyle = MUTED;
+        context.fillText(text, centerX, textY);
         const halfWidth = context.measureText(text).width / 2;
-        context.strokeStyle = "#6b7280";
+        context.strokeStyle = MUTED;
         context.lineWidth = 1.2;
         context.beginPath();
-        context.moveTo(centerX - halfWidth, centerY);
-        context.lineTo(centerX + halfWidth, centerY);
+        context.moveTo(centerX - halfWidth, textY);
+        context.lineTo(centerX + halfWidth, textY);
         context.stroke();
-        context.strokeStyle = data.brand.dark;
-        context.lineWidth = 2;
+        const percent = Math.round((1 - (Number(item.price) || 0) / oldPrice) * 100);
+        context.font = `800 10px ${fontFamily}`;
+        pill(context, `خصم ${percent}%`, centerX, centerY + 4, 16, { background: "#fdecea", text: DISCOUNT_RED }, "center");
+      } else {
+        context.fillStyle = index === 6 ? "#8a91a0" : INK;
+        context.fillText(text, centerX, centerY);
       }
       cellX += columns[index].width;
     });
   });
 
+  // Totals card on the left
+  const totalsX = 40;
+  const totalsWidth = 330;
+  context.fillStyle = "#ffffff";
+  context.strokeStyle = CARD_BORDER;
+  context.lineWidth = 1;
+  roundedRect(context, totalsX, totalsTop, totalsWidth, totalsCardHeight, 10);
+  context.fill();
+  context.textBaseline = "middle";
+  totalsRows.forEach(([label, value, color], index) => {
+    const y = totalsTop + index * totalsRowHeight;
+    if (index) {
+      context.strokeStyle = "#eef0f4";
+      context.beginPath();
+      context.moveTo(totalsX, y);
+      context.lineTo(totalsX + totalsWidth, y);
+      context.stroke();
+    }
+    context.textAlign = "right";
+    context.fillStyle = INK;
+    context.font = `13px ${fontFamily}`;
+    context.fillText(label, totalsX + totalsWidth - 14, y + totalsRowHeight / 2);
+    context.textAlign = "left";
+    context.fillStyle = color ?? INK;
+    context.font = `700 13px ${fontFamily}`;
+    context.fillText(value, totalsX + 14, y + totalsRowHeight / 2);
+  });
+  const grandTop = totalsTop + totalsRows.length * totalsRowHeight;
+  context.save();
+  roundedRect(context, totalsX, totalsTop, totalsWidth, totalsCardHeight, 10);
+  context.clip();
+  context.fillStyle = data.brand.dark;
+  context.fillRect(totalsX, grandTop, totalsWidth, grandHeight);
+  context.restore();
+  context.strokeStyle = CARD_BORDER;
+  roundedRect(context, totalsX, totalsTop, totalsWidth, totalsCardHeight, 10);
+  context.stroke();
+  context.fillStyle = "#ffffff";
+  context.font = `800 15px ${fontFamily}`;
+  context.textAlign = "right";
+  context.fillText("الإجمالي شامل الضريبة", totalsX + totalsWidth - 14, grandTop + grandHeight / 2);
+  context.textAlign = "left";
+  context.fillText(money(data.totals.grand), totalsX + 14, grandTop + grandHeight / 2);
+
+  // Amount in words, savings and validity on the right
   context.textBaseline = "alphabetic";
   context.textAlign = "right";
-  context.font = `700 14px ${fontFamily}`;
-  const summaryRows = [
-    ["المجموع قبل الخصم:", money(data.totals.subtotal)],
-    [
-      "قيمة الخصم:",
-      data.totals.discountTotal > 0 ? `- ${money(data.totals.discountTotal)}` : money(0),
-      "#b42318",
-    ],
-    ["المجموع بعد الخصم:", money(data.totals.afterDiscount)],
-    [`الضريبة (${data.tax || 0}%):`, money(data.totals.taxAmount)],
-  ];
-  summaryRows.forEach(([label, value, valueColor], index) => {
-    const y = summaryTop + index * 25;
-    context.fillStyle = "#171829";
-    context.textAlign = "right";
-    context.fillText(label, 754, y + 15);
-    context.textAlign = "left";
-    context.fillStyle = valueColor ?? "#171829";
-    context.fillText(value, 40, y + 15);
-  });
-
-  context.fillStyle = data.brand.dark;
-  roundedRect(context, 40, grandTop, 714, 48, 8);
-  context.fill();
-  context.fillStyle = "#ffffff";
-  context.font = `800 16px ${fontFamily}`;
-  context.textAlign = "right";
-  context.fillText("الإجمالي شامل الضريبة:", 738, grandTop + 30);
-  context.textAlign = "left";
-  context.fillText(money(data.totals.grand), 56, grandTop + 30);
-
-  context.fillStyle = "#6b7280";
-  context.font = `13px ${fontFamily}`;
-  context.textAlign = "center";
-  context.fillText(
-    `هذا العرض صالح لمدة ${data.validDays || 0} أيام من تاريخ الإصدار`,
-    PAGE_WIDTH / 2,
-    validityY,
-  );
-
-  context.strokeStyle = "#edf0f3";
-  context.lineWidth = 1;
-  context.beginPath();
-  context.moveTo(40, notesTop);
-  context.lineTo(754, notesTop);
-  context.stroke();
-  context.fillStyle = "#171829";
+  context.fillStyle = data.brand.accent;
+  context.font = `800 12px ${fontFamily}`;
+  context.fillText("المبلغ كتابةً", 754, totalsTop + 16);
+  context.fillStyle = INK;
   context.font = `700 13px ${fontFamily}`;
+  wordsLines.forEach((line, index) => context.fillText(line, 754, totalsTop + 40 + index * 21));
+  if (hasDiscount) {
+    const percent = data.totals.subtotal > 0 ? Math.round((data.totals.discountTotal / data.totals.subtotal) * 100) : 0;
+    context.font = `800 12px ${fontFamily}`;
+    pill(
+      context,
+      `وفّرت ${money(data.totals.discountTotal)} (${percent}%)`,
+      754,
+      savingsTop,
+      26,
+      { background: "#e8f6ee", text: SAVINGS_GREEN },
+      "right",
+    );
+  }
+  context.textBaseline = "alphabetic";
   context.textAlign = "right";
-  context.fillText("ملاحظة:", 754, notesTop + 22);
+  context.fillStyle = MUTED;
+  context.font = `12px ${fontFamily}`;
+  context.fillText(`هذا العرض صالح لمدة ${daysText(data.validDays || 0)} من تاريخ الإصدار`, 754, validityY);
+
+  // Notes
+  context.fillStyle = CARD_SURFACE;
+  roundedRect(context, 40, notesTop, 714, notesBottom - notesTop, 10);
+  context.fill();
+  context.fillStyle = INK;
+  context.font = `800 13px ${fontFamily}`;
+  context.fillText("ملاحظات", 740, notesTop + 26);
   context.font = `13px ${fontFamily}`;
-  noteLines.forEach((line, index) => context.fillText(line || " ", 754, notesTop + 45 + index * 19));
+  noteRows.forEach(({ text, bullet }, index) => {
+    const y = notesTop + 50 + index * 20;
+    if (bullet) {
+      context.fillStyle = data.brand.accent;
+      context.fillText("•", 740, y);
+    }
+    context.fillStyle = INK;
+    context.fillText(text, 726, y);
+  });
 
   if (stamp) {
     if (data.platform === "interflow") {

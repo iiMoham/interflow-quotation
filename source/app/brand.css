@@ -333,6 +333,291 @@
   text-decoration-thickness: 1.5px;
 }
 
-.summary > .discount-value {
+/* ---------- Editor helpers ---------- */
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: -3px 0 12px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.chip {
+  padding: 4px 11px;
+  border: 1px solid #d5d9e2;
+  border-radius: 999px;
+  background: #fff;
+  color: #36394b;
+  font-size: 12px;
+  font-weight: 700;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.chip:hover {
+  border-color: var(--cyan);
+}
+
+.chip.is-active {
+  border-color: var(--cyan);
+  background: color-mix(in srgb, var(--cyan) 12%, #fff);
+  color: color-mix(in srgb, var(--cyan) 70%, #000);
+}
+
+.item-heading {
+  gap: 8px;
+}
+
+.item-total {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-inline-start: auto;
+  color: var(--navy);
+  font-weight: 800;
+}
+
+.item-tools {
+  display: inline-flex;
+  gap: 10px;
+}
+
+.duplicate {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: color-mix(in srgb, var(--cyan) 75%, #000);
+  font-weight: 700;
+}
+
+.duplicate svg {
+  width: 14px;
+}
+
+.discount-badge {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #fdecea;
   color: #b42318;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.field input[aria-invalid="true"] {
+  border-color: #f0c36d;
+  background: #fffaf0;
+}
+
+.client-reminder {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border: 1px solid #f3d79b;
+  border-radius: 8px;
+  background: #fffaf0;
+  color: #8a5a00;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* ---------- Quote sheet ---------- */
+
+.quote-title {
+  margin: 4px 0 22px;
+}
+
+.info-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.info-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid #e3e7ee;
+  border-radius: 10px;
+  background: #fafbfc;
+  font-size: 13px;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.info-label {
+  color: var(--cyan);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.client-name {
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.client-number {
+  color: #4b5262;
+}
+
+.info-card dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin: 0;
+}
+
+.info-card dt {
+  color: #6b7280;
+}
+
+.info-card dd {
+  margin: 0;
+  text-align: left;
+  font-weight: 700;
+}
+
+.items-table {
+  border: 1px solid #dfe4ea;
+  border-radius: 10px;
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: hidden;
+}
+
+.items-table th {
+  padding: 10px 6px;
+  border-left: 1px solid color-mix(in srgb, #fff 35%, var(--cyan));
+  font-size: 13px;
+}
+
+.items-table td {
+  padding: 10px 5px;
+  border-top: 1px solid #e6e9ef;
+  border-left: 1px solid #eef0f4;
+  vertical-align: middle;
+}
+
+.items-table th:last-child,
+.items-table td:last-child {
+  border-left: 0;
+}
+
+.items-table tbody tr:nth-child(even) td {
+  background: #f7f9fb;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.items-table .row-number {
+  color: #8a91a0;
+  font-weight: 700;
+}
+
+.items-table .old-price {
+  display: block;
+}
+
+.items-table .discount-badge {
+  margin-top: 3px;
+}
+
+.totals-row {
+  display: grid;
+  grid-template-columns: 1fr 330px;
+  gap: 18px;
+  align-items: start;
+  margin: 20px 0 16px;
+}
+
+.amount-words {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding-top: 4px;
+}
+
+.amount-words p {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.7;
+}
+
+.amount-words .validity {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+  text-align: right;
+}
+
+.savings-badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #e8f6ee;
+  color: #0f7b4f;
+  font-size: 12px;
+  font-weight: 800;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.totals-card {
+  overflow: hidden;
+  border: 1px solid #e3e7ee;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.totals-card > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 14px;
+  border-top: 1px solid #eef0f4;
+}
+
+.totals-card > div:first-child {
+  border-top: 0;
+}
+
+.totals-card .discount-value b {
+  color: #b42318;
+}
+
+.totals-card .grand-total {
+  border-top: 0;
+  background: var(--navy);
+  color: #fff;
+  padding: 12px 14px;
+  font-size: 15px;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.notes {
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 10px;
+  background: #fafbfc;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.notes ul {
+  margin: 6px 0 0;
+  padding-inline-start: 18px;
+  line-height: 1.8;
+}
+
+.notes li::marker {
+  color: var(--cyan);
 }
