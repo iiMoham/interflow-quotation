@@ -196,7 +196,7 @@ async function renderQuotation(data: QuotePdfData) {
   const hasDiscount = data.totals.discountTotal > 0;
 
   // Vertical layout, top to bottom.
-  const cardsTop = 222;
+  const cardsTop = 232;
   const cardsHeight = 100;
   const tableTop = cardsTop + cardsHeight + 22;
   const tableHeaderHeight = 40;
@@ -232,11 +232,14 @@ async function renderQuotation(data: QuotePdfData) {
   const notesTop = validityY + 16;
   const notesBottom = notesTop + 44 + noteRows.length * 20;
 
-  const stampTop = totalsTop + totalsCardHeight + 14;
+  // The stamp centres in the space between the totals card and the footer, at least 28px clear of both.
+  const totalsCardBottom = totalsTop + totalsCardHeight;
   const stampHeight = data.platform === "interflow" ? 115 : 155;
+  const stampGap = 28;
   const stampCenterX = 40 + 330 / 2;
-  const contentBottom = Math.max(notesBottom, stampTop + stampHeight);
-  const footerTop = Math.max(1059, contentBottom + 24);
+  const contentBottom = Math.max(notesBottom, totalsCardBottom + stampGap + stampHeight);
+  const footerTop = Math.max(1059, contentBottom + stampGap);
+  const stampTop = totalsCardBottom + (footerTop - totalsCardBottom - stampHeight) / 2;
   const pageHeight = footerTop + 64;
 
   const canvas = document.createElement("canvas");
@@ -274,19 +277,19 @@ async function renderQuotation(data: QuotePdfData) {
   context.fillStyle = data.brand.accent;
   context.font = `800 42px ${fontFamily}`;
   context.textAlign = "center";
-  context.fillText(data.status || "عرض سعر", PAGE_WIDTH / 2, 150);
+  context.fillText(data.status || "عرض سعر", PAGE_WIDTH / 2, 146);
 
   context.fillStyle = INK;
   context.strokeStyle = INK;
   context.font = `800 27px ${fontFamily}`;
   context.direction = "ltr";
   const quoteNumber = data.quoteNumber || "...";
-  context.fillText(quoteNumber, PAGE_WIDTH / 2, 192);
+  context.fillText(quoteNumber, PAGE_WIDTH / 2, 202);
   const numberWidth = context.measureText(quoteNumber).width;
   context.lineWidth = 1.5;
   context.beginPath();
-  context.moveTo(PAGE_WIDTH / 2 - numberWidth / 2, 197);
-  context.lineTo(PAGE_WIDTH / 2 + numberWidth / 2, 197);
+  context.moveTo(PAGE_WIDTH / 2 - numberWidth / 2, 207);
+  context.lineTo(PAGE_WIDTH / 2 + numberWidth / 2, 207);
   context.stroke();
   context.direction = "rtl";
 
