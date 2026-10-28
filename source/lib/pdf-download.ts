@@ -522,13 +522,21 @@ async function renderQuotation(data: QuotePdfData) {
   context.font = `12px ${fontFamily}`;
   context.textBaseline = "middle";
   context.textAlign = "left";
-  context.direction = "ltr";
-  context.fillText(data.brand.domain, 54, footerTop + 32);
-  context.textAlign = "center";
-  context.fillText(data.brand.email, PAGE_WIDTH / 2, footerTop + 32);
-  context.textAlign = "right";
-  context.direction = "rtl";
-  context.fillText("سجل تجاري: 7051649650", 740, footerTop + 32);
+  // Left to right, evenly spaced between the page margins (reads right to left in Arabic).
+  const footerItems: [string, CanvasDirection][] = [
+    [data.brand.domain, "ltr"],
+    [data.brand.email, "ltr"],
+    ["سجل تجاري: 7051649650", "rtl"],
+    ["الرقم الضريبي: 314228071700003", "rtl"],
+  ];
+  const footerWidths = footerItems.map(([text]) => context.measureText(text).width);
+  const footerGap = (PAGE_WIDTH - 108 - footerWidths.reduce((sum, width) => sum + width, 0)) / (footerItems.length - 1);
+  let footerX = 54;
+  footerItems.forEach(([text, direction], index) => {
+    context.direction = direction;
+    context.fillText(text, footerX, footerTop + 32);
+    footerX += footerWidths[index] + footerGap;
+  });
 
   const jpeg = await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
@@ -619,15 +627,54 @@ function makePdf(jpeg: Uint8Array, imageWidth: number, imageHeight: number) {
   return pdf;
 }
 
-export async function downloadQuoteAsPdf(data: QuotePdfData, filename: string) {
+export async function createQuotePdf(data: QuotePdfData, filename: string) {
   const rendered = await renderQuotation(data);
   const pdf = makePdf(rendered.bytes, rendered.width, rendered.height);
-  const url = URL.createObjectURL(new Blob([pdf], { type: "application/pdf" }));
+  return new File([pdf], filename.replace(/[\\/:*?"<>|]+/g, "-"), { type: "application/pdf" });
+}
+
+// "shared": the phone's share sheet took the file. "downloaded": a normal browser download started.
+// "blocked": the browser refused the share sheet (too long since the tap); call shareOrOpenPdf from a new tap.
+// "cancelled": the user closed the share sheet.
+export type PdfDelivery = "shared" | "downloaded" | "blocked" | "cancelled";
+
+export const isTouchDevice = () => window.matchMedia("(pointer: coarse)").matches;
+
+const canShareFile = (file: File) => typeof navigator.canShare === "function" && navigator.canShare({ files: [file] });
+
+export async function deliverPdf(file: File): Promise<PdfDelivery> {
+  if (isTouchDevice() && canShareFile(file)) {
+    try {
+      await navigator.share({ files: [file], title: file.name });
+      return "shared";
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return "cancelled";
+      return "blocked";
+    }
+  }
+  const url = URL.createObjectURL(file);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = filename.replace(/[\\/:*?"<>|]+/g, "-");
+  anchor.download = file.name;
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  return "downloaded";
+}
+
+// For a fresh tap: share sheet where possible, otherwise open the PDF so the browser can show or save it.
+// In-app browsers (WhatsApp, Instagram...) often ignore downloads but can still open the file.
+export async function shareOrOpenPdf(file: File) {
+  if (canShareFile(file)) {
+    try {
+      await navigator.share({ files: [file], title: file.name });
+      return;
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+    }
+  }
+  const url = URL.createObjectURL(file);
+  if (!window.open(url, "_blank")) window.location.href = url;
+  window.setTimeout(() => URL.revokeObjectURL(url), 5 * 60_000);
 }

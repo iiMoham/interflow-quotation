@@ -17,15 +17,29 @@ export type Product = {
   tax: number;
 };
 
+const SUBSCRIPTION: ProductLine = {
+  name: "باقة سنتين شاملة",
+  description: "-",
+  qty: 1,
+  oldPrice: 8209.03,
+  price: 4104.35,
+};
+
 export const PRODUCTS: Product[] = [
   {
-    name: "باقة سنتين",
-    description: "اشتراك سنتين مع كاشير تابلت متنقل وطابعة حرارية",
+    name: "الباقة الشاملة سنتين",
+    description: "مع كاشير تابلت متنقل وطابعة حرارية",
     lines: [
-      { name: "اشتراك سنتين", description: "-", qty: 1, oldPrice: 8209.03, price: 4104.35 },
-      { name: "كاشير تابلت متنقل", description: "-", qty: 0, oldPrice: 750, price: 0 },
+      SUBSCRIPTION,
+      { name: "كاشير تابلت متنقل", description: "-", qty: 0, oldPrice: 1299, price: 0 },
       { name: "طابعة حراريه", description: "-", qty: 0, oldPrice: 399, price: 0 },
     ],
+    tax: 15,
+  },
+  {
+    name: "الباقة الشاملة سنتين",
+    description: "بدون أجهزة",
+    lines: [SUBSCRIPTION],
     tax: 15,
   },
 ];

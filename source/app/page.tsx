@@ -16,7 +16,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Toaster } from "@/components/ui/sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { downloadQuoteAsPdf } from "@/lib/pdf-download";
+import { createQuotePdf, deliverPdf, isTouchDevice, shareOrOpenPdf } from "@/lib/pdf-download";
 import { formatQuoteNumber, normalizeQuoteNumber } from "@/lib/quote-number";
 import { PRODUCTS, productTotal, type Product } from "@/lib/products";
 import { amountInWords, daysText } from "@/lib/tafqit";
@@ -41,6 +41,8 @@ type Draft = {
   clientNumber: string;
   discount: number;
   tax: number;
+  // Typed prices already include VAT; the quote shows them before tax and adds the VAT back.
+  taxIncluded: boolean;
   validDays: number;
   notes: string;
   items: Item[];
@@ -92,6 +94,9 @@ const discountPercent = (item: Item) => {
 };
 const VALIDITY_PRESETS = [3, 7, 14, 30];
 const VAT_RATE = 15;
+// Dropped from the default notes; older saved drafts still carry it.
+const LEGACY_VAT_NOTE = "الأسعار المذكورة شاملة/غير شاملة ضريبة القيمة المضافة حسب ما هو موضح.";
+const round2 = (value: number) => Math.round(value * 100) / 100;
 // Typing into a number field that shows 0 should replace it, not append to it.
 const selectOnFocus = (event: React.FocusEvent<HTMLInputElement>) => event.currentTarget.select();
 
@@ -105,9 +110,9 @@ const initialDraft = (platform: Platform = "interflow"): Draft => ({
   clientNumber: "",
   discount: 0,
   tax: 0,
+  taxIncluded: false,
   validDays: DEFAULT_VALID_DAYS,
-  notes:
-    "الأسعار المذكورة شاملة/غير شاملة ضريبة القيمة المضافة حسب ما هو موضح.\nعرض السعر صالح للفترة المحددة أعلاه فقط.\nيحق للشركة تعديل الأسعار بعد انتهاء صلاحية العرض.",
+  notes: "عرض السعر صالح للفترة المحددة أعلاه فقط.\nيحق للشركة تعديل الأسعار بعد انتهاء صلاحية العرض.",
   items: [emptyItem()],
 });
 
@@ -182,6 +187,10 @@ export default function Home() {
             issueDate: today(),
             expiryDate: plusDays(today(), validDays),
             validDays,
+            notes: (parsed.notes ?? initialDraft().notes)
+              .split("\n")
+              .filter((line) => line.trim() !== LEGACY_VAT_NOTE)
+              .join("\n"),
             items: (parsed.items?.length ? parsed.items : [emptyItem()]).map((item) => ({
               ...emptyItem(),
               ...item,
@@ -233,20 +242,42 @@ export default function Home() {
     });
   });
 
+  const vatFactor = draft.taxIncluded ? 1 + Math.max(Number(draft.tax) || 0, 0) / 100 : 1;
+  // What the quote shows per item: before-tax prices (to the halala) when the typed ones include VAT.
+  const shownItems = useMemo(() => {
+    if (vatFactor === 1) return draft.items;
+    const net = (value: number) => round2((Number(value) || 0) / vatFactor);
+    return draft.items.map((item) => ({ ...item, oldPrice: net(item.oldPrice), price: net(item.price) }));
+  }, [draft.items, vatFactor]);
+
   const totals = useMemo(() => {
     const qty = (item: Item) => Number(item.qty) || 0;
     // Before discount uses each item's previous price when it has one.
-    const subtotal = draft.items.reduce(
+    const subtotal = shownItems.reduce(
       (sum, item) => sum + qty(item) * (previousPrice(item) ?? (Number(item.price) || 0)),
       0,
     );
     const itemsTotal = draft.items.reduce((sum, item) => sum + qty(item) * (Number(item.price) || 0), 0);
     const extraDiscount = Math.min(Math.max(Number(draft.discount) || 0, 0), itemsTotal);
+    if (vatFactor !== 1) {
+      // The typed total is final: the VAT is whatever is left after the before-tax rows add up.
+      const grand = itemsTotal - extraDiscount;
+      const net =
+        shownItems.reduce((sum, item) => sum + qty(item) * (Number(item.price) || 0), 0) -
+        round2(extraDiscount / vatFactor);
+      return {
+        subtotal,
+        discountTotal: round2(subtotal - net),
+        afterDiscount: round2(net),
+        taxAmount: round2(grand - net),
+        grand,
+      };
+    }
     const afterDiscount = itemsTotal - extraDiscount;
     const discountTotal = subtotal - afterDiscount;
     const taxAmount = (afterDiscount * Math.max(Number(draft.tax) || 0, 0)) / 100;
     return { subtotal, discountTotal, afterDiscount, taxAmount, grand: afterDiscount + taxAmount };
-  }, [draft]);
+  }, [draft, shownItems, vatFactor]);
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((current) => ({ ...current, [key]: value }));
@@ -295,7 +326,7 @@ export default function Home() {
   };
   // A ready package replaces the quote's items with its lines and switches on its VAT.
   const addProduct = (product: Product) => {
-    setDraft((current) => ({ ...current, items: product.lines.map((line) => ({ ...line })), discount: 0, tax: product.tax }));
+    setDraft((current) => ({ ...current, items: product.lines.map((line) => ({ ...line })), discount: 0, tax: product.tax, taxIncluded: false }));
     toast.success(`تم تطبيق «${product.name}»`);
   };
   const duplicateItem = (index: number) =>
@@ -313,20 +344,38 @@ export default function Home() {
     setPdfGenerating(true);
     setPdfError("");
     try {
-      await downloadQuoteAsPdf(
+      const file = await createQuotePdf(
         {
           ...draft,
+          items: shownItems,
           totals,
           brand,
         },
         `عرض-سعر-${safeNumber}.pdf`,
       );
+      const delivery = await deliverPdf(file);
+      // Closing the share sheet without saving keeps the number, so the same quote can be tried again.
+      if (delivery === "cancelled") return;
       // Each downloaded quote keeps its number; the form moves on to the next one.
       const advanced = await allocateNumber();
+      const description = advanced
+        ? "تم تخصيص رقم جديد للعرض التالي، وبقيت بيانات العرض كما هي."
+        : "تعذر تخصيص رقم جديد، استخدم «إعادة المحاولة» بجانب رقم العرض.";
+      if (delivery === "blocked") {
+        // The browser only opens the share sheet straight after a tap; this button is that tap.
+        toast(<>ملف العرض <bdi>{downloadedNumber}</bdi> جاهز</>, {
+          description,
+          duration: Infinity,
+          action: { label: "حفظ / مشاركة", onClick: () => void shareOrOpenPdf(file) },
+        });
+        return;
+      }
       toast.success(<>تم تنزيل العرض <bdi>{downloadedNumber}</bdi></>, {
-        description: advanced
-          ? "تم تخصيص رقم جديد للعرض التالي، وبقيت بيانات العرض كما هي."
-          : "تعذر تخصيص رقم جديد، استخدم «إعادة المحاولة» بجانب رقم العرض.",
+        description,
+        // Phones' in-app browsers can ignore downloads silently; offer to open the file instead.
+        ...(delivery === "downloaded" && isTouchDevice()
+          ? { duration: 15_000, action: { label: "فتح الملف", onClick: () => void shareOrOpenPdf(file) } }
+          : {}),
       });
     } catch {
       setPdfError("تعذر تنزيل ملف PDF. حاول مرة أخرى.");
@@ -479,7 +528,7 @@ export default function Home() {
                 {PRODUCTS.map((product) => (
                   <button
                     type="button"
-                    key={product.name}
+                    key={`${product.name} ${product.description}`}
                     className="product-card"
                     onClick={() => addProduct(product)}
                   >
@@ -601,11 +650,34 @@ export default function Home() {
                 type="button"
                 className={`chip${draft.tax === VAT_RATE ? " is-active" : ""}`}
                 aria-pressed={draft.tax === VAT_RATE}
-                onClick={() => set("tax", draft.tax === VAT_RATE ? 0 : VAT_RATE)}
+                onClick={() =>
+                  setDraft((current) =>
+                    current.tax === VAT_RATE
+                      ? { ...current, tax: 0, taxIncluded: false }
+                      : { ...current, tax: VAT_RATE },
+                  )
+                }
               >
                 {draft.tax === VAT_RATE ? "✓ " : ""}ضريبة القيمة المضافة {VAT_RATE}%
               </button>
+              <button
+                type="button"
+                className={`chip${draft.taxIncluded && draft.tax ? " is-active" : ""}`}
+                aria-pressed={Boolean(draft.taxIncluded && draft.tax)}
+                onClick={() =>
+                  setDraft((current) =>
+                    current.taxIncluded && current.tax
+                      ? { ...current, taxIncluded: false }
+                      : { ...current, taxIncluded: true, tax: current.tax || VAT_RATE },
+                  )
+                }
+              >
+                {draft.taxIncluded && draft.tax ? "✓ " : ""}الأسعار شاملة الضريبة
+              </button>
             </div>
+            {draft.taxIncluded && draft.tax > 0 && (
+              <p className="helper">اكتب الأسعار النهائية شاملة الضريبة، ويحسب العرض السعر قبل الضريبة وقيمتها تلقائيًا.</p>
+            )}
             <Field label="الملاحظات">
               <Textarea value={draft.notes} onChange={(event) => set("notes", event.target.value)} />
             </Field>
@@ -678,7 +750,7 @@ export default function Home() {
                   </colgroup>
                   <thead><tr><th>#</th><th>الصنف</th><th>الوصف</th><th>العدد</th><th>السعر السابق</th><th>السعر بعد الخصم</th><th>الإجمالي</th></tr></thead>
                   <tbody>
-                    {draft.items.map((item, index) => (
+                    {shownItems.map((item, index) => (
                       <tr key={index}>
                         <td className="row-number">{index + 1}</td>
                         <td><b>{item.name || "-"}</b></td><td>{item.description || "-"}</td>
@@ -715,7 +787,7 @@ export default function Home() {
                 </div>
               </div>
               <footer>
-                <span>{brand.domain}</span><span>{brand.email}</span><span>سجل تجاري: 7051649650</span>
+                <span>{brand.domain}</span><span>{brand.email}</span><span>سجل تجاري: 7051649650</span><span>الرقم الضريبي: 314228071700003</span>
               </footer>
             </article>
           </div>
